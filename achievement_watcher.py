@@ -43,18 +43,18 @@ try:
 except Exception:
     olefile = None
 
-# RawInput / Joystick (Windows)
+# RawInput / Joystick
 import ctypes
 from ctypes import wintypes
 _winmm = ctypes.WinDLL("winmm", use_last_error=True)
 _user2 = ctypes.WinDLL("user32", use_last_error=True)
 
 
-# Füge diese Imports nach den PyQt-/ctypes-Imports ein:
+
 import ssl
 from urllib.request import Request, urlopen
 
-# … oben im File (nach Imports) einfügen:
+
 def resource_path(rel: str) -> str:
     """
     Robust path resolver für PyInstaller onefile:
@@ -201,21 +201,21 @@ DEFAULT_OVERLAY = {
     "cpu_sim_ai": True,
     "cpu_sim_correlated": True,
 
-    # NEU: CPU-Simulationsmodus ("live" | "postgame")
+
     "cpu_sim_mode": "postgame",
-    # NEU: CPU Postgame Monte-Carlo Rollouts
+
     "cpu_postgame_rollouts": 120,
 }
 
 
-DEFAULT_OVERLAY.setdefault("automatic_creation", True)  # opt-out switch (default ON)
+DEFAULT_OVERLAY.setdefault("automatic_creation", True)  
 
 EXCLUDED_FIELDS = {
     "Last Game Start", "Last Printout", "Last Replay", "Champion Reset", "Clock Last Set", "Coins Cleared",
     "Factory Setting", "Recent Paid Cred", "Recent Serv. Cred", "Burn-in Time", "Totals Cleared", "Audits Cleared",
     "Play Time", "R. Universe Won", "Last Serv. Cred"
 }
-# NEU: lowercased Spiegelmenge
+
 EXCLUDED_FIELDS_LC = {s.lower() for s in EXCLUDED_FIELDS}
 
 def is_excluded_field(label: str) -> bool:
@@ -230,9 +230,9 @@ def is_excluded_field(label: str) -> bool:
         "cleared" in ll or
         "factory" in ll or
         "timestamp" in ll or
-        # 'last' Felder, die kein Gameplay sind (Printout/Replay) immer raus:
+  
         ("last" in ll and ("printout" in ll or "replay" in ll)) or
-        # Alte Heuristik: 'Last' + 'Game'
+ 
         ("last" in ll and "game" in ll)
     )
  
@@ -253,7 +253,7 @@ class AppConfig:
     # Injector/DLL on/off
     HOOK_ENABLE: bool = True
 
-    # NEU: Muster für Log-Unterdrückung (Substrings), leere Liste => Defaults aus DEFAULT_LOG_SUPPRESS
+ 
     LOG_SUPPRESS: List[str] = field(default_factory=list)
 
     @staticmethod
@@ -282,16 +282,16 @@ class AppConfig:
                 FIRST_RUN=bool(data.get("FIRST_RUN", False)),
                 SIMPLE_END_SNAPSHOT_ONLY=bool(data.get("SIMPLE_END_SNAPSHOT_ONLY", False)),
                 HOOK_AUTO_SETUP=bool(data.get("HOOK_AUTO_SETUP", True)),
-                # Preserve class default if not present in file
+              
                 HOOK_BIN_URL_BASE=str(data.get("HOOK_BIN_URL_BASE", AppConfig.HOOK_BIN_URL_BASE)),
                 BOOTSTRAP_USE_CB=bool(data.get("BOOTSTRAP_USE_CB", False)),
                 LOG_CTRL=bool(data.get("LOG_CTRL", False)),
                 HOOK_ENABLE=bool(data.get("HOOK_ENABLE", True)),
-                # If not stored, fallback to DEFAULT_LOG_SUPPRESS
+           
                 LOG_SUPPRESS=list(data.get("LOG_SUPPRESS", DEFAULT_LOG_SUPPRESS)),
             )
         except Exception:
-            # Safe fallback to defaults (incl. DEFAULT_LOG_SUPPRESS)
+           
             cfg = AppConfig(FIRST_RUN=True)
             cfg.LOG_SUPPRESS = list(DEFAULT_LOG_SUPPRESS)
             return cfg
@@ -310,7 +310,7 @@ class AppConfig:
                 "BOOTSTRAP_USE_CB": self.BOOTSTRAP_USE_CB,
                 "LOG_CTRL": self.LOG_CTRL,
                 "HOOK_ENABLE": self.HOOK_ENABLE,
-                # Persistiere die aktuelle Suppress-Liste
+            
                 "LOG_SUPPRESS": self.LOG_SUPPRESS if self.LOG_SUPPRESS else DEFAULT_LOG_SUPPRESS,
             }
             ensure_dir(os.path.dirname(path))
@@ -326,8 +326,8 @@ def p_session(cfg):      return os.path.join(cfg.BASE, "session_stats")
 def p_highlights(cfg):   return os.path.join(p_session(cfg), "Highlights")
 def p_rom_spec(cfg):     return os.path.join(cfg.BASE, "rom_specific_achievements")
 def p_custom(cfg):       return os.path.join(cfg.BASE, "custom_achievements")
-def p_bin(cfg):          return os.path.join(cfg.BASE, "bin")  # Ablage für DLL/Injector
-def p_ai(cfg):          return os.path.join(cfg.BASE, "AI")  # globaler KI-Ordner unterhalb von BASE
+def p_bin(cfg):          return os.path.join(cfg.BASE, "bin")  
+def p_ai(cfg):          return os.path.join(cfg.BASE, "AI")  
 
 def f_global_ach(cfg):   return os.path.join(cfg.BASE, "global_achievements.json")
 def f_achievements_state(cfg: "AppConfig") -> str:
@@ -358,21 +358,21 @@ DEFAULT_LOG_SUPPRESS = [
 quiet_prefixes: tuple[str, ...] = ()
 
 def log(cfg: AppConfig, msg: str, level: str = "INFO"):
-    # Vollständige Unterdrückung definierter Muster (Datei UND Konsole)
+    
     try:
         suppress_list = (getattr(cfg, "LOG_SUPPRESS", None) or DEFAULT_LOG_SUPPRESS) if cfg else DEFAULT_LOG_SUPPRESS
         for pat in suppress_list:
             if pat and pat in str(msg):
-                return  # nichts schreiben
+                return  
     except Exception:
         pass
 
     line = f"[{_ts()}] [{level}] {msg}"
 
-    # Nur Konsole unterdrücken? (bestehende Mechanik über quiet_prefixes)
+ 
     suppress_console = any(str(msg).startswith(p) for p in quiet_prefixes) if quiet_prefixes else False
 
-    # Datei-Log
+  
     try:
         ensure_dir(os.path.dirname(f_log(cfg)))
         with open(f_log(cfg), "a", encoding="utf-8") as fp:
@@ -380,7 +380,7 @@ def log(cfg: AppConfig, msg: str, level: str = "INFO"):
     except Exception:
         pass
 
-    # Konsole (optional)
+ 
     if not suppress_console:
         print(line)
 
@@ -392,13 +392,6 @@ def load_json(path, default=None):
         return default
 
 def save_json(path, obj):
-    """
-    Atomar JSON speichern:
-      1) in .tmp-Datei schreiben
-      2) flush + fsync
-      3) os.replace(.tmp -> final) = atomarer Swap
-    Rückgabe: True bei Erfolg, sonst False (räumt .tmp auf).
-    """
     tmp = None
     try:
         ensure_dir(os.path.dirname(path))
@@ -424,9 +417,6 @@ def save_json(path, obj):
         return False
 
 def write_text(path, text):
-    """
-    Atomar Text speichern (analog zu save_json).
-    """
     tmp = None
     try:
         ensure_dir(os.path.dirname(path))
@@ -452,10 +442,6 @@ def write_text(path, text):
         return False
 
 def _is_weird_value(x: int) -> bool:
-    """
-    Markiert offensichtlich falsche/ausreißende Werte als 'weird'.
-    Schwelle so gesetzt, dass 433_483_904 herausgefiltert wird.
-    """
     try:
         return abs(int(x)) >= 400_000_000
     except Exception:
@@ -463,10 +449,6 @@ def _is_weird_value(x: int) -> bool:
 
 
 def apply_tooltips(owner, tips: dict):
-    """
-    Safely set .setToolTip(text) on attributes of 'owner' if they exist.
-    tips: { 'attr_name': 'tooltip text', ... }
-    """
     for name, text in (tips or {}).items():
         try:
             w = getattr(owner, name, None)
@@ -578,7 +560,7 @@ class Watcher:
         self.INDEX: Dict[str, Any] = {}
         self.ROMNAMES: Dict[str, Any] = {}
 
-        # Hier fest einschalten: Segment-/Snapshot-Modus aktiv
+        
         self.snapshot_mode = True
 
         self.field_stats: Dict[str, dict] = {}
@@ -599,36 +581,31 @@ class Watcher:
         self.current_segment_provisional_diff: Dict[str, int] = {}
         self.include_current_segment_in_overlay = True
         self._pending_detector_switch: Optional[int] = None
-        # Debounce/State für Rotationen
+       
         self._last_rotate_ts = 0.0
-        self.CP_MIN_ROTATE_INTERVAL = 0.8  # sec debounce für Current-Player-Rotation
+        self.CP_MIN_ROTATE_INTERVAL = 0.8  
         self._control_fields_cache: Dict[str, List[dict]] = {}
         self._last_injected_pid = 0
         self._injector_procs: List[subprocess.Popen] = []
         self._injector_started: bool = False
         self._last_ini_sig = ""
-        self.cpu = {}  # noch kein Laufzeitzustand – beim ersten Init Config-Werte übernehmen
+        self.cpu = {}  
  
  
     def _oneball_check_and_schedule(self, audits_ctl: dict) -> None:
-        """
-        Robuste One-Ball-Erkennung:
-        - Löst aus, wenn current_ball oder Balls Played um +1 steigt (rising edge),
-          zusätzlich zu evtl. vorhandenen Baselines (baseline_cb / baseline_bp).
-        - Setzt einen verzögerten Kill (pending_kill_at), damit Logs/Snapshots sauber sind.
-        """
+ 
         import time
 
         try:
             ch = getattr(self, "challenge", {}) or {}
             if not ch.get("active") or ch.get("kind") != "oneball":
-                # Auch Prev-Zähler zurücksetzen, wenn One-Ball nicht aktiv ist
+             
                 self._prev_cb_ob = None
                 self._prev_bp_ob = None
                 return
 
             if not ch.get("one_ball_active", False):
-                # Bereits beendet/geschedult
+           
                 return
 
             audits_ctl = audits_ctl or {}
@@ -651,7 +628,7 @@ class Watcher:
             trigger = False
             reason = None
 
-            # 1) Rising edges (am robustesten, unabhängig von Baselines/Maps)
+        
             if prev_cb is not None and cur_cb is not None and cur_cb == prev_cb + 1:
                 trigger = True
                 reason = f"current_ball rising-edge {prev_cb}->{cur_cb}"
@@ -659,7 +636,7 @@ class Watcher:
                 trigger = True
                 reason = f"Balls Played rising-edge {prev_bp}->{cur_bp}"
 
-            # 2) Baseline-Deltas (fallback / zusätzlich)
+    
             if not trigger and base_cb is not None and cur_cb is not None and cur_cb >= base_cb + 1:
                 trigger = True
                 reason = f"current_ball baseline {base_cb}->{cur_cb}"
@@ -667,18 +644,18 @@ class Watcher:
                 trigger = True
                 reason = f"Balls Played baseline {base_bp}->{cur_bp}"
 
-            # Always update prevs for next loop
+         
             self._prev_cb_ob = cur_cb
             self._prev_bp_ob = cur_bp
 
             if not trigger:
                 return
 
-            # Einmalig kill schedulen
+         
             if not ch.get("pending_kill_at"):
-                delay_s = float(ch.get("one_ball_kill_delay", 3.0))  # 0.5–3.0 empfehlenswert
+                delay_s = float(ch.get("one_ball_kill_delay", 3.0))  
                 try:
-                    # Snapshot vom Zustand direkt vorm Kill (optional)
+                  
                     ch["prekill_end"] = dict(audits_ctl or {})
                 except Exception:
                     pass
@@ -706,12 +683,9 @@ class Watcher:
  
  
  
-     # In class Watcher ergänzen
+   
     def _alt_f4_visual_pinball_player(self, wait_ms: int = 0) -> bool:
-        """
-        Sendet ALT+F4 an alle sichtbaren 'Visual Pinball Player'-Fenster.
-        Optional kann nach dem Senden kurz gewartet werden (wait_ms).
-        """
+ 
         try:
             import time
             import win32con
@@ -754,7 +728,7 @@ class Watcher:
                 except Exception:
                     pass
 
-            # optional kurze Wartezeit
+       
             if int(wait_ms or 0) > 0:
                 try:
                     time.sleep(max(0.0, float(wait_ms) / 1000.0))
@@ -778,13 +752,7 @@ class Watcher:
             return False
  
     def _auto_map_enabled(self) -> bool:
-        """
-        Auto-mapping is ON by default. It can be turned off only via config.json:
-          OVERLAY.automatic_creation = false
-        Legacy opt-out aliases (also disable when set to false):
-          OVERLAY.automatischanlegen = false
-          OVERLAY.auto_generate_maps = false
-        """
+
         try:
             ov = getattr(self.cfg, "OVERLAY", {}) or {}
             # New primary switch
@@ -800,10 +768,7 @@ class Watcher:
             return True
 
     def _base_map_exists(self, rom: str) -> bool:
-        """
-        Returns True if a base map for the ROM exists strictly under BASE/NVRAM_Maps/maps.
-        Accepts either <rom>.json or <rom>.map.json.
-        """
+
         if not rom:
             return False
         maps_dir = p_local_maps(self.cfg)
@@ -813,10 +778,7 @@ class Watcher:
         )
  
     def _nvram_sampler_start(self, rom: str):
-        """
-        Start lightweight NVRAM sampling for ROMs without a base map.
-        Captures consecutive raw .nv snapshots (bytes) for simple change analysis.
-        """
+
         try:
             if not rom or not self._auto_map_enabled() or self._base_map_exists(rom):
                 self._nv_samp = None
@@ -839,10 +801,7 @@ class Watcher:
             self._nv_samp = None 
  
     def _nvram_sampler_tick(self):
-        """
-        Append a new NVRAM sample (bytes) at the configured interval while the game is active.
-        Runs only if a sampler session is active for the current ROM.
-        """
+  
         try:
             s = getattr(self, "_nv_samp", None)
             if not s or not self.game_active or not self.current_rom or self.current_rom != s.get("rom"):
@@ -864,10 +823,7 @@ class Watcher:
             pass  
             
     def _looks_bcd(self, bs: bytes) -> bool:
-        """
-        Heuristic: return True if all nibbles are <= 9 and not all bytes are zero.
-        Minimum length = 2 bytes.
-        """
+
         if not bs or len(bs) < 2:
             return False
         any_nonzero = False
@@ -879,16 +835,7 @@ class Watcher:
         return any_nonzero            
  
     def _nvram_autogen_map(self, rom: str):
-        """
-        Generate a simple but usable NVRAM map for ROMs without a base map.
-        Writes BASE/NVRAM_Maps/maps/<rom>.json with:
-          - fields[]: candidates for game_state (player_count, current_player, Balls Played),
-                      BCD score slots (P1..P4 Score),
-                      and a handful of counters (Counter 1..n).
-        Guardrails:
-          - Active by default; can be disabled via OVERLAY.automatic_creation = false
-          - Does NOT overwrite official/community maps or overrides.
-        """
+
         try:
             if not rom or not self._auto_map_enabled() or self._base_map_exists(rom):
                 return
@@ -914,7 +861,7 @@ class Watcher:
 
             L = len(data)
 
-            # 1) Change profile: count how often each offset changed between successive samples
+       
             deltas = [0] * L
             try:
                 for i in range(1, len(samples)):
@@ -926,7 +873,7 @@ class Watcher:
             except Exception:
                 pass
 
-            # 2) Build candidate windows (1/2/3/4 bytes, be/le, BCD)
+
             cands = []
             def add_cand(off: int, sz: int, enc: str | None, endian: str | None, score: int):
                 cands.append({"offset": off, "size": sz, "encoding": enc, "endian": endian, "score": score})
@@ -934,26 +881,26 @@ class Watcher:
             for off in range(L):
                 if deltas[off] <= 0:
                     continue
-                # 1 byte
+         
                 add_cand(off, 1, None, "be", deltas[off])
-                # 2 bytes (be/le)
+            
                 if off + 1 < L:
                     sc2 = deltas[off] + deltas[off + 1]
                     add_cand(off, 2, None, "be", sc2)
                     add_cand(off, 2, None, "le", sc2)
-                # BCD 3/4 bytes
+           
                 if off + 2 < L and self._looks_bcd(data[off:off + 3]):
                     add_cand(off, 3, "bcd", None, deltas[off] + deltas[off + 1] + deltas[off + 2] + 2)
                 if off + 3 < L and self._looks_bcd(data[off:off + 4]):
                     add_cand(off, 4, "bcd", None,
                              deltas[off] + deltas[off + 1] + deltas[off + 2] + deltas[off + 3] + 3)
-                # uint32 (be/le)
+
                 if off + 3 < L:
                     sc4 = sum(deltas[off:off + 4])
                     add_cand(off, 4, None, "be", sc4)
                     add_cand(off, 4, None, "le", sc4)
 
-            # 3) Pick top non-overlapping candidates (up to ~40)
+
             cands.sort(key=lambda c: c["score"], reverse=True)
             picked = []
             def overlaps(a, b):
@@ -965,7 +912,7 @@ class Watcher:
                 if len(picked) >= 40:
                     break
 
-            # 4) Labeling heuristics
+ 
             fields = []
             def push(label, spec):
                 fields.append({
@@ -992,7 +939,7 @@ class Watcher:
                         vals.append(int(v))
                 return vals
 
-            # Game-state: look for 1-byte candidates ranging in 0..4 to guess player_count/current_player
+        
             gs_specs = [c for c in picked if c["size"] == 1]
             one_to_four = []
             for s in gs_specs:
@@ -1008,7 +955,7 @@ class Watcher:
             if len(one_to_four) > 1:
                 push("current_player", one_to_four[1][0])
 
-            # Balls Played: small, slowly increasing counter (1 or 2 bytes, non-BCD)
+         
             bp_cand = None
             for s in picked:
                 if s["size"] in (1, 2) and (s.get("encoding") or None) != "bcd":
@@ -1021,7 +968,7 @@ class Watcher:
             if bp_cand:
                 push("Balls Played", bp_cand)
 
-            # Scores: BCD 3–4 bytes for up to 4 players
+            
             bcds = [c for c in picked if (c.get("encoding") or None) == "bcd" and c["size"] in (3, 4)]
             for idx, spec in enumerate(bcds[:4], start=1):
                 push(f"P{idx} Score", spec)
@@ -12210,3 +12157,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
