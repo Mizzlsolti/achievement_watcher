@@ -706,13 +706,14 @@ class Watcher:
  
  
  
- # In class Watcher ergänzen
-    def _alt_f4_visual_pinball_player(self) -> bool:
+     # In class Watcher ergänzen
+    def _alt_f4_visual_pinball_player(self, wait_ms: int = 0) -> bool:
         """
-        Direkter ALT+F4-Pfad (falls du den schon in Timed nutzt).
-        Nutzt denselben toleranten Title-Match wie oben.
+        Sendet ALT+F4 an alle sichtbaren 'Visual Pinball Player'-Fenster.
+        Optional kann nach dem Senden kurz gewartet werden (wait_ms).
         """
         try:
+            import time
             import win32con
             import win32gui
             import win32api
@@ -743,13 +744,20 @@ class Watcher:
                     pass
                 return False
 
+            # ALT+F4 senden
             for hwnd in hwnds:
                 try:
-                    # ALT down + F4 down/up + ALT up
                     win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
                     win32api.keybd_event(win32con.VK_F4, 0, 0, 0)
                     win32api.keybd_event(win32con.VK_F4, 0, win32con.KEYEVENTF_KEYUP, 0)
                     win32api.keybd_event(win32con.VK_MENU, 0, win32con.KEYEVENTF_KEYUP, 0)
+                except Exception:
+                    pass
+
+            # optional kurze Wartezeit
+            if int(wait_ms or 0) > 0:
+                try:
+                    time.sleep(max(0.0, float(wait_ms) / 1000.0))
                 except Exception:
                     pass
 
@@ -2656,13 +2664,24 @@ class Watcher:
                     pass
             return False
         
-        # ====== CHALLENGES – helpers and API (Watcher) ======
-    # In class Watcher: _kill_vpx_process ersetzen
     def _kill_vpx_process(self):
         """
-        Beende NUR den Visual Pinball Player via ALT+F4 (graceful).
-        Optionaler Fallback: WM_CLOSE. Kein taskkill.
+        Beende NUR den Visual Pinball Player:
+        - 1) "Sanft" via WM_CLOSE (graceful)
+        - 2) Fallback ALT+F4 (mit kurzer Wartezeit)
+        - 3) Letzter Fallback erneut WM_CLOSE auf exakte Titel
+        Kein taskkill.
         """
+        # 1) Graceful
+        try:
+            if hasattr(self, "_graceful_close_visual_pinball_player"):
+                if self._graceful_close_visual_pinball_player(timeout_s=3.0):
+                    log(self.cfg, "[CHALLENGE] VP Player closed (graceful)")
+                    return
+        except Exception as e:
+            log(self.cfg, f"[CHALLENGE] graceful close failed: {e}", "WARN")
+
+        # 2) ALT+F4 Fallback
         try:
             if self._alt_f4_visual_pinball_player(wait_ms=3000):
                 log(self.cfg, "[CHALLENGE] VP Player closed via Alt+F4")
@@ -2670,12 +2689,9 @@ class Watcher:
         except Exception as e:
             log(self.cfg, f"[CHALLENGE] Alt+F4 failed: {e}", "WARN")
 
-        # Optionaler softer Fallback: WM_CLOSE
+        # 3) Letzter Fallback: WM_CLOSE auf exakten Titel
         try:
-            import ctypes
-            from ctypes import wintypes
             import win32gui, win32con
-
             def _cb(hwnd, _):
                 try:
                     if not win32gui.IsWindowVisible(hwnd):
@@ -2688,7 +2704,7 @@ class Watcher:
                 return True
 
             win32gui.EnumWindows(_cb, None)
-            log(self.cfg, "[CHALLENGE] VP Player requested close via WM_CLOSE")
+            log(self.cfg, "[CHALLENGE] VP Player requested close via WM_CLOSE (fallback)")
         except Exception:
             log(self.cfg, "[CHALLENGE] WARNING: could not send WM_CLOSE to Visual Pinball Player", "WARN")
 
@@ -6747,48 +6763,6 @@ class Watcher:
                     active_rom = None
 
             time.sleep(0.5)
-
-    def _service_pending_kill(self) -> None:
-        """
-        Führt geplanten Kill aus, wenn pending_kill_at erreicht ist.
-        Nutzt denselben Close/ALT+F4-Pfad wie die Timed-Challenge.
-        """
-        import time
-        ch = getattr(self, "challenge", {}) or {}
-        ts = ch.get("pending_kill_at")
-        if not ts:
-            return
-
-        if time.time() < float(ts):
-            return
-
-        # Pending-Kill ausführen
-        try:
-            # Verwende genau den gleichen Pfad wie bei der Timed-Challenge
-            if hasattr(self, "_graceful_close_visual_pinball_player"):
-                self._graceful_close_visual_pinball_player()
-            elif hasattr(self, "_alt_f4_visual_pinball_player"):
-                self._alt_f4_visual_pinball_player()
-            else:
-                # Fallback: nichts tun; aber zumindest loggen
-                try:
-                    log(self.cfg, "[CHALLENGE] No close routine available for VPX!", "WARN")
-                except Exception:
-                    print("[CHALLENGE] No close routine available for VPX!")
-        finally:
-            # Challenge-Status bereinigen
-            ch["pending_kill_at"] = None
-            ch["ended_at"] = time.time()
-            self.challenge = ch
-
-            try:
-                log(self.cfg, "[CHALLENGE] VPX close invoked for One-Ball")
-            except Exception:
-                try:
-                    print("[CHALLENGE] VPX close invoked for One-Ball")
-                except Exception:
-                    pass
-
 
 
     def start(self):
