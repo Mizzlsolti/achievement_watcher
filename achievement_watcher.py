@@ -8829,7 +8829,7 @@ class MainWindow(QMainWindow):
                 return float(fallback_mtime or 0.0)
 
         if not os.path.isdir(hist_dir):
-            self.ch_results_view.setHtml("<div>(keine Ergebnisse)</div>")
+            self.ch_results_view.setHtml("<div>(no results)</div>")
             return
 
         timed = []
