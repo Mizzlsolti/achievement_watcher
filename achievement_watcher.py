@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 
 from __future__ import annotations
 
@@ -11,9 +10,6 @@ from datetime import datetime, timedelta, timezone
 from dataclasses import dataclass, field
 from typing import Optional, Dict, Any, List, Tuple
 from collections import defaultdict, Counter
-
-
-# PyQt6
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QTextEdit, QTextBrowser, QSystemTrayIcon, QMenu, QFileDialog, QMessageBox, QTabWidget,
@@ -42,8 +38,6 @@ try:
     import olefile
 except Exception:
     olefile = None
-
-# RawInput / Joystick
 import ctypes
 from ctypes import wintypes
 _winmm = ctypes.WinDLL("winmm", use_last_error=True)
@@ -56,11 +50,7 @@ from urllib.request import Request, urlopen
 
 
 def resource_path(rel: str) -> str:
-    """
-    Robust path resolver für PyInstaller onefile:
-    - Im Bundle (sys._MEIPASS) suchen
-    - Sonst im App-Ordner (APP_DIR)
-    """
+    
     base = getattr(sys, "_MEIPASS", None)
     if base and os.path.isdir(base):
         p = os.path.join(base, rel)
@@ -69,10 +59,7 @@ def resource_path(rel: str) -> str:
     return os.path.join(APP_DIR, rel)
 
 def _fetch_json_url(url: str, timeout: int = 25) -> dict:
-    """
-    Fetch JSON from URL using requests if available, otherwise urllib.
-    Raises on HTTP or parse errors.
-    """
+   
     ua = "AchievementWatcher/1.0 (+https://github.com/Mizzlsolti)"
     if requests:
         r = requests.get(url, timeout=timeout, headers={"User-Agent": ua})
@@ -90,10 +77,7 @@ def _fetch_json_url(url: str, timeout: int = 25) -> dict:
         return json.loads(raw)
 
 def _fetch_bytes_url(url: str, timeout: int = 25) -> bytes:
-    """
-    Fetch bytes from URL using requests if available, otherwise urllib.
-    Raises on HTTP errors.
-    """
+    
     ua = "AchievementWatcher/1.0 (+https://github.com/Mizzlsolti)"
     if requests:
         r = requests.get(url, timeout=timeout, headers={"User-Agent": ua})
@@ -195,8 +179,6 @@ DEFAULT_OVERLAY = {
     "prefer_ascii_icons": False,
     "auto_show_on_end": True,
     "live_updates": False,
-
-    # CPU‑Sim Settings
     "cpu_sim_active": True,
     "cpu_sim_ai": True,
     "cpu_sim_correlated": True,
@@ -219,10 +201,7 @@ EXCLUDED_FIELDS = {
 EXCLUDED_FIELDS_LC = {s.lower() for s in EXCLUDED_FIELDS}
 
 def is_excluded_field(label: str) -> bool:
-    """
-    Case-insensitive Exclude-Filter für offensichtliche Nicht-Gameplay-/Verwaltungsfelder.
-    Schließt 'Last Printout'/'Last Replay' zuverlässig aus (egal in welcher Schreibweise).
-    """
+    
     ll = str(label or "").strip().lower()
     return (
         ll in EXCLUDED_FIELDS_LC or
@@ -249,8 +228,6 @@ class AppConfig:
     HOOK_BIN_URL_BASE: str = "https://github.com/Mizzlsolti/WatcherInjector/releases/latest/download"
     BOOTSTRAP_USE_CB: bool = False
     LOG_CTRL: bool = False
-
-    # Injector/DLL on/off
     HOOK_ENABLE: bool = True
 
  
@@ -258,19 +235,12 @@ class AppConfig:
 
     @staticmethod
     def load(path: str = CONFIG_FILE) -> "AppConfig":
-        """
-        Load configuration from disk.
-        - Keeps sane defaults when keys are missing.
-        - IMPORTANT: preserves the class default for HOOK_BIN_URL_BASE when not present in the file.
-        - If the JSON cannot be read, falls back to defaults (FIRST_RUN=True).
-        """
+       
         if not os.path.exists(path):
             return AppConfig(FIRST_RUN=True)
         try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-
-            # Merge overlay with defaults
             ov = dict(DEFAULT_OVERLAY)
             ov.update(data.get("OVERLAY", {}))
 
@@ -717,8 +687,6 @@ class Watcher:
                 except Exception:
                     pass
                 return False
-
-            # ALT+F4 senden
             for hwnd in hwnds:
                 try:
                     win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
@@ -755,10 +723,8 @@ class Watcher:
 
         try:
             ov = getattr(self.cfg, "OVERLAY", {}) or {}
-            # New primary switch
             if ov.get("automatic_creation") is False:
                 return False
-            # Legacy aliases (still honored for opt-out)
             if ov.get("automatischanlegen") is False:
                 return False
             if ov.get("auto_generate_maps") is False:
@@ -787,7 +753,6 @@ class Watcher:
             if not os.path.isfile(nv_path):
                 self._nv_samp = None
                 return
-            # Keep ~60s at 4 Hz by default (max 240 samples)
             self._nv_samp = {
                 "rom": rom,
                 "path": nv_path,
@@ -839,8 +804,6 @@ class Watcher:
         try:
             if not rom or not self._auto_map_enabled() or self._base_map_exists(rom):
                 return
-
-            # Prefer the sampled tail; otherwise, read a single end-state snapshot.
             s = getattr(self, "_nv_samp", None)
             samples: list[bytes] = []
             data: bytes | None = None
@@ -972,8 +935,6 @@ class Watcher:
             bcds = [c for c in picked if (c.get("encoding") or None) == "bcd" and c["size"] in (3, 4)]
             for idx, spec in enumerate(bcds[:4], start=1):
                 push(f"P{idx} Score", spec)
-
-            # Additional neutral counters (few)
             rest = 0
             for s in picked:
                 if any(abs(s["offset"] - f["offset"]) < 1 and s["size"] == f["size"] for f in fields):
@@ -987,8 +948,6 @@ class Watcher:
             if not fields:
                 log(self.cfg, f"[AUTOMAP] no fields detected for {rom}", "WARN")
                 return
-
-            # 5) Write maps/<rom>.json
             maps_dir = p_local_maps(self.cfg)
             ensure_dir(maps_dir)
             out_path = os.path.join(maps_dir, f"{rom}.json")
@@ -1000,15 +959,12 @@ class Watcher:
  
  
     def _start_detector_http(self, host: str = "127.0.0.1", port: int = 8765):
-        # Deaktiviert: kein HTTP-Detector mehr
         return
 
     def _stop_detector_http(self):
-        # Deaktiviert: kein HTTP-Server zu stoppen
         return
 
     def _kill_b2s_process_if_enabled(self):
-        # Deaktiviert: keinen B2S-Prozess beenden
         return
 
     def _plausible_counter(self, label: str) -> bool:
@@ -1023,10 +979,7 @@ class Watcher:
         return any(k in l for k in keys)
 
     def _session_milestones_for_field(self, field_label: str) -> list[int]:
-        """
-        Realistische Session-Meilensteine (nvram_delta) pro Feld.
-        WICHTIG: 'Extra Balls' maximal 3 oder 5 in einer Session.
-        """
+      
         f = (field_label or "").lower()
         if "extra ball" in f:
             return [3, 5]
@@ -1046,14 +999,10 @@ class Watcher:
             return [10, 20, 30, 50]
         if "mode" in f:
             return [1, 3, 5, 10]
-        # Default
         return [1, 3, 5, 10, 15, 20, 25, 30]
         
     def _overall_milestones_for_field(self, field_label: str) -> list[int]:
-        """
-        Realistische Overall-Meilensteine (nvram_overall) pro Feld.
-        Konservativer als Session-Ziele.
-        """
+       
         f = (field_label or "").lower()
         if "games started" in f:
             return [50, 100, 250, 500]
@@ -1079,20 +1028,13 @@ class Watcher:
             return [10, 25, 50]
         if "modes started" in f or ("mode" in f and "start" in f):
             return [25, 50, 100]
-        # Default
         return [50, 100, 250, 500]     
 
 
     def _generate_default_global_rules(self) -> list[dict]:
-        """
-        Erzeugt ca. 50 realistische globale Regeln:
-          - session_time inkl. 15/35/45 Minuten
-          - feldspezifische nvram_overall-Meilensteine
-        """
+       
         rules: list[dict] = []
         seen: set[str] = set()
-
-        # 1) Zeitbasierte Global-Regeln (immer gültig)
         for mins in [10, 15, 20, 30, 35, 45, 60]:
             title = self._unique_title(f"Global – {mins} Minutes", seen)
             rules.append({
@@ -1100,8 +1042,6 @@ class Watcher:
                 "scope": "global",
                 "condition": {"type": "session_time", "min_seconds": int(mins * 60)}
             })
-
-        # 2) Feldbasierte Overall-Regeln (realistisch)
         candidate_fields = [
             "Games Started", "Balls Played", "Ramps Made", "Jackpots",
             "Total Multiballs", "Loops", "Spinner", "Drop Targets",
@@ -1128,16 +1068,7 @@ class Watcher:
         
 
     def _ensure_rom_specific(self, rom: str, audits: dict):
-        """
-        Create ROM-specific session-only achievements (no global rules).
-        Target:
-          - ~36 session rules:
-            * 6x session_time: 5/10/15/20/30/45 minutes
-            * ~30x nvram_delta with caps per field (max 2 milestones per field)
-        Field selection:
-          - Prefer hot stats -> whitelist -> plausible counters
-          - Mix categories (power/precision/progress/meta/other) round-robin
-        """
+    
         if not rom or not audits:
             return
         path = os.path.join(p_rom_spec(self.cfg), f"{rom}.ach.json")
@@ -1251,8 +1182,6 @@ class Watcher:
 
         rules: list[dict] = []
         seen_titles: set[str] = set()
-
-        # Session time targets
         for mins in session_time_minutes:
             secs = int(mins * 60)
             title = self._unique_title(f"{rom} – {mins} Minutes (Session)", seen_titles)
@@ -1261,8 +1190,6 @@ class Watcher:
                 "condition": {"type": "session_time", "min_seconds": secs},
                 "scope": "session"
             })
-
-        # Session nvram_delta
         remaining_session = max(0, target_session_total - len(rules))
         used_session_per_field: dict[str, int] = {}
 
@@ -1294,26 +1221,18 @@ class Watcher:
             log(self.cfg, f"[ROM_SPEC] created {path} with {len(rules)} session-only rules")
 
     def _ach_persist_after_session(self, end_audits: dict, duration_sec: int, nplayers: int):
-        """
-        Persist one-time unlocks after a session:
-          - Global: record only titles coming from global_achievements.json
-          - Session: record only for 1-player sessions (skip when nplayers >= 2)
-        """
+        
         try:
             awarded, _all_global, awarded_meta = self._evaluate_achievements(self.current_rom, self.start_audits, end_audits, duration_sec)
         except Exception as e:
             log(self.cfg, f"[ACH] eval failed: {e}", "WARN")
             awarded, awarded_meta = [], []
-
-        # Global: restrict to origin=global_achievements
         try:
             from_ga = [m for m in (awarded_meta or []) if (m.get("origin") == "global_achievements")]
             if from_ga:
                 self._ach_record_unlocks("global", self.current_rom, from_ga)
         except Exception as e:
             log(self.cfg, f"[ACH] persist global failed: {e}", "WARN")
-
-        # Session: only for 1-player sessions
         try:
             if int(nplayers or 1) == 1:
                 sess_achs_p1 = self._evaluate_player_session_achievements(1, self.current_rom) or []
@@ -1336,9 +1255,7 @@ class Watcher:
     
 
     def _unique_title(self, title: str, seen: set[str]) -> str:
-        """
-        Sorgt dafür, dass Titel eindeutig sind (Suffix bei Kollision).
-        """
+       
         base = title.strip()
         if base not in seen:
             seen.add(base)
@@ -1352,18 +1269,12 @@ class Watcher:
             i += 1
 
     def _milestones(self, kind: str) -> list[int]:
-        """
-        Liefert passende Meilensteine:
-        kind: 'session' | 'overall' | 'time'
-        """
+       
         if kind == "session":
-            # feingranular für Session-Deltas
             return [1, 3, 5, 7, 10, 12, 15, 20, 25, 30, 40, 50]
         if kind == "overall":
-            # robustere Overall-Stufen
             return [25, 50, 75, 100, 150, 200, 300, 400, 500, 750, 1000]
         if kind == "time":
-            # Sekunden
             return [180, 300, 480, 600, 720, 900, 1200, 1500, 1800, 2400, 3000]
         return []
 
@@ -1382,20 +1293,14 @@ class Watcher:
             p_bin(self.cfg),  # Ablage für DLL/Injector
         ]:
             ensure_dir(d)
-
-        # Globaler KI-Ordner + Default-Dateien (BASE\AI)
         try:
             self._ai_global_bootstrap()
         except Exception as e:
             log(self.cfg, f"[AI] bootstrap call failed: {e}", "WARN")
-
-        # Profiling-Bootstrap (history + profile.json)
         try:
             self._ai_profile_bootstrap()
         except Exception as e:
             log(self.cfg, f"[AI-PROFILE] bootstrap call failed: {e}", "WARN")
-
-        # Hook/Injector-Binaries automatisch bereitstellen (falls konfiguriert)
         try:
             if bool(self.cfg.HOOK_AUTO_SETUP):
                 self._ensure_hook_binaries()
@@ -1449,7 +1354,6 @@ class Watcher:
 
 
     def _prefetch_worker(self):
-        # INDEX laden
         if not self.INDEX:
             log(self.cfg, "Prefetch: INDEX empty, attempting reload...", "WARN")
             try:
@@ -1461,8 +1365,6 @@ class Watcher:
             except Exception as e:
                 log(self.cfg, f"Prefetch aborted: cannot load INDEX: {e}", "ERROR")
                 return
-
-        # Einzigartige Map-Pfade aus INDEX sammeln
         unique_rels = set()
         total_roms = 0
         for rom, entry in self.INDEX.items():
@@ -1472,12 +1374,9 @@ class Watcher:
             rel = entry if isinstance(entry, str) else (entry.get("path") or entry.get("file"))
             if not rel:
                 continue
-            # Normalisieren: "maps/" vorne abstrippen, damit lokale Ablage unter BASE/NVRAM_Maps/maps/<rel>
             if rel.startswith("maps/"):
                 rel = rel[len("maps/"):]
             unique_rels.add(rel)
-
-        # Eindeutige Dateien laden
         downloaded = 0
         for rel in sorted(unique_rels):
             local = os.path.join(p_local_maps(self.cfg), rel.replace("/", os.sep))
@@ -1518,20 +1417,10 @@ class Watcher:
         return default
 
     def parse_map(self, mj):
-        """
-        Unterstützt:
-          - maps mit "fields"
-          - "offsets"
-          - "audits" (verschachtelt)
-          - "game_state" (scores, current_player, player_count, current_ball, ball_count, credits, Flags)
-        Gibt eine Liste von Feldspezifikationen zurück:
-          {"name","label","offset","size","encoding","endian","scale","signed", optional: "mask","value_offset"}
-        """
+    
         fields: List[Dict[str, Any]] = []
         if not isinstance(mj, dict):
             return fields
-
-        # 1) Direktes "fields"-Schema
         if isinstance(mj.get("fields"), list):
             for f in mj["fields"]:
                 if not isinstance(f, dict):
@@ -1549,8 +1438,6 @@ class Watcher:
                     "value_offset": self._to_int(f.get("value_offset", f.get("offset_adjust", f.get("valueoffset", 0))), 0)
                 })
             return fields
-
-        # 2) "offsets"-Kurzform
         if isinstance(mj.get("offsets"), dict):
             d_enc = mj.get("encoding")
             d_end = mj.get("endian")
@@ -1563,8 +1450,6 @@ class Watcher:
                         "scale": 1.0, "signed": False
                     })
             return fields
-
-        # 3) Verschachtelte "audits"-Struktur
         if isinstance(mj.get("audits"), (dict, list)):
             def walk(c):
                 if isinstance(c, list):
@@ -1596,13 +1481,8 @@ class Watcher:
                         else:
                             walk(v)
             walk(mj["audits"])
-            # kein sofortiges return – evtl. zusätzlich game_state
-
-        # 4) game_state-Schema
         if isinstance(mj.get("game_state"), dict):
             gs = mj["game_state"]
-
-            # Scores → "P{n} Score"
             scores = gs.get("scores")
             if isinstance(scores, list):
                 for idx, sc in enumerate(scores, start=1):
@@ -1657,8 +1537,6 @@ class Watcher:
             add_gs("game_over", "Game Over")
             add_gs("extra_balls", "Extra Balls")
             add_gs("tilt_warnings", "Tilt Warnings")
-
-        # 5) Letzter Fallback: flache ints/strings
         if not fields:
             for k, v in mj.items():
                 if isinstance(v, (int, str)):
@@ -1669,10 +1547,7 @@ class Watcher:
         return fields
 
     def _build_control_field_specs_for_ini(self, rom: str) -> List[dict]:
-        """
-        Build INI fields for the DLL using the normalized control specs from _control_fields_for().
-        Ensures current_player has a safe mask/value_offset, and 'Balls Played' label is normalized.
-        """
+       
         fields_ini: List[dict] = []
         if not rom or not self.cfg.HOOK_ENABLE:
             return fields_ini
@@ -1710,8 +1585,6 @@ class Watcher:
                      f.get("value_offset", 0) or 0)
             elif ll == "balls played" or ll == "ball count" or ("balls" in ll and "played" in ll):
                 bp_spec = f
-
-        # Prefer explicit Balls Played, else Ball Count, else fallback to current_ball
         if bp_spec:
             push("Balls Played",
                  bp_spec.get("offset", 0), 1,
@@ -1727,20 +1600,15 @@ class Watcher:
 
 
     def _load_base_map_for_rom(self, rom: str) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
-        """
-        Lädt die Basis-Map NUR aus NVRAM_Maps/maps (keine Overrides) und gibt parse_map(fields) zurück.
-        Nutzt INDEX/romnames/Family-Präfix wie load_map_for_rom – aber ohne Schritt (1) Override.
-        """
+     
         if not rom:
             return None, None
-        # 1) Lokale Aliasse (json + map.json)
         alias = os.path.join(p_local_maps(self.cfg), rom + ".json")
         if os.path.exists(alias):
             return self.parse_map(load_json(alias, {}) or {}), alias
         alias2 = os.path.join(p_local_maps(self.cfg), rom + ".map.json")
         if os.path.exists(alias2):
             return self.parse_map(load_json(alias2, {}) or {}), alias2
-        # 2) INDEX
         entry = self.INDEX.get(rom)
         if entry:
             rel = entry if isinstance(entry, str) else (entry.get("path") or entry.get("file"))
@@ -1748,7 +1616,6 @@ class Watcher:
                 f, p = self._load_map_from_local_rel(rel)
                 if f:
                     return f, p
-        # 3) romnames-Umleitung
         base_rom = self.ROMNAMES.get(rom)
         if base_rom and base_rom != rom:
             f, p = self._load_base_map_for_rom(base_rom)
@@ -1756,7 +1623,6 @@ class Watcher:
                 save_json(alias, load_json(p, {}) or {})
                 log(self.cfg, f"[CTRL] Saved alias base map via romnames -> {alias}")
                 return f, alias
-        # 4) Familien-Prefix
         prefix = str(rom).split("_")[0].lower()
         for cand in list(self.INDEX.keys()):
             if not cand.lower().startswith(prefix) or cand == rom:
@@ -1773,10 +1639,7 @@ class Watcher:
         return None, None
         
     def _write_watcher_hook_ini(self, rom: str):
-        """
-        Schreibt BASE\\bin\\watcher_hook.ini für die DLL.
-        Guard: HOOK_ENABLE muss True sein. Felder stammen aus Basis-Maps.
-        """
+     
         try:
             if not rom or not self.cfg.HOOK_ENABLE:
                 return
@@ -1789,7 +1652,6 @@ class Watcher:
             lines = [f"base={base}", f"rom={rom}", f"nvram={nv_path}"]
             for f in fields:
                 label = str(f.get("label") or f.get("name") or "").strip()
-                # Normiere Balls Played für die DLL
                 if "balls played" in label.lower() or label.lower() == "ball count":
                     label = "Balls Played"
                 lines.append(
@@ -1813,10 +1675,7 @@ class Watcher:
 
 
     def _ensure_hook_ini_once(self):
-        """
-        Schreibt watcher_hook.ini nur, wenn sich die relevanten Inhalte (rom, nvram, Felder)
-        geändert haben. Verhindert 'INI written'-Spam.
-        """
+        
         try:
             if not self.cfg.HOOK_ENABLE:
                 return
@@ -1837,11 +1696,7 @@ class Watcher:
 
 
     def _try_start_injectors(self):
-        """
-        Startet NUR den 64-bit Injector. Start-CWD auf BASE\\bin setzen.
-        Hinweis: Diese Methode wird im normalen Flow nicht benötigt, bleibt aber
-        als Hilfsstarter rein für x64 erhalten.
-        """
+      
         try:
             if getattr(self, "_injector_started", False):
                 return
@@ -1856,18 +1711,13 @@ class Watcher:
             log(self.cfg, "[HOOK] Injector launched (x64 only)")
         except Exception as e:
             log(self.cfg, f"[HOOK] Injector start failed (x64): {e}", "WARN")
-        # ACHTUNG: hier KEINE verschachtelten def _pnames_injectors/_tasklist_has mehr!
 
     def _pnames_injectors(self) -> List[str]:
-        """
-        Nur noch x64-Injector ist bekannt (32-bit vollständig entfernt).
-        """
+       
         return ["WatcherInjector64.exe"]
 
     def _tasklist_has(self, imagename: str) -> bool:
-        """
-        Prüft, ob ein Prozessname in tasklist sichtbar ist.
-        """
+        
         try:
             out = subprocess.check_output(
                 ["tasklist", "/FI", f"IMAGENAME eq {imagename}"],
@@ -1878,10 +1728,7 @@ class Watcher:
             return False
 
     def _get_process_architecture(self, pid: int) -> Optional[str]:
-        """
-        Liefert 'x64' oder 'x86' für den Zielprozess, None bei Fehler.
-        Nutzt bevorzugt IsWow64Process2 (Win10+), fällt zurück auf IsWow64Process.
-        """
+      
         try:
             k32 = ctypes.windll.kernel32
             PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
@@ -1892,7 +1739,6 @@ class Watcher:
                 return None
             arch = None
             try:
-                # IsWow64Process2(HANDLE, USHORT* pProcessMachine, USHORT* pNativeMachine)
                 try:
                     IsWow64Process2 = k32.IsWow64Process2
                     IsWow64Process2.argtypes = [wintypes.HANDLE, ctypes.POINTER(ctypes.c_ushort), ctypes.POINTER(ctypes.c_ushort)]
@@ -1903,15 +1749,12 @@ class Watcher:
                         IMAGE_FILE_MACHINE_I386 = 0x014c
                         IMAGE_FILE_MACHINE_AMD64 = 0x8664
                         if pm.value == 0:
-                            # Kein WOW – native Bitness aus nm
                             arch = "x64" if nm.value == IMAGE_FILE_MACHINE_AMD64 else "x86"
                         else:
-                            # WOW64 -> 32-Bit Prozess auf 64-Bit OS
                             arch = "x86" if pm.value == IMAGE_FILE_MACHINE_I386 else "x86"
                     else:
                         arch = None
                 except Exception:
-                    # Fallback: IsWow64Process(HANDLE, PBOOL) – True => 32-bit Prozess auf 64-bit OS
                     try:
                         IsWow64Process = k32.IsWow64Process
                         IsWow64Process.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL)]
@@ -1931,9 +1774,7 @@ class Watcher:
             return None
 
     def _start_injector(self, exe_name: str) -> bool:
-        """
-        Startet genau EINE Injector-EXE (x86 ODER x64). Setzt CWD auf BASE\\bin.
-        """
+       
         try:
             bin_dir = p_bin(self.cfg)
             exe = os.path.join(bin_dir, exe_name)
@@ -1952,11 +1793,7 @@ class Watcher:
 
 
     def _try_start_injectors_for_vpx(self):
-        """
-        Startet den 64‑Bit Injector (WatcherInjector64.exe), sobald VPX läuft.
-        Schreibt watcher_hook.ini nur bei Änderungen.
-        Guard: HOOK_ENABLE muss True sein.
-        """
+      
         if not self.cfg.HOOK_ENABLE:
             return
         try:
@@ -1969,14 +1806,10 @@ class Watcher:
             return
         if not self.current_rom:
             return
-
-        # INI nur bei Änderung
         try:
             self._ensure_hook_ini_once()
         except Exception:
             pass
-
-        # Nur einmal pro VPX‑Prozess starten
         if int(pid) == int(getattr(self, "_last_injected_pid", 0) or 0):
             return
 
@@ -1993,10 +1826,7 @@ class Watcher:
 
 
     def _kill_injectors(self, force: bool = True, verify: bool = True, timeout_verify: float = 3.0):
-        """
-        Beendet alle bekannten Injector-Prozesse. Fallback per taskkill, danach Verifikation via tasklist.
-        """
-        # 1) Gemerkte Popen-Handles terminieren/killen
+       
         try:
             for proc in list(getattr(self, "_injector_procs", []) or []):
                 try:
@@ -2013,8 +1843,6 @@ class Watcher:
         except Exception:
             pass
         self._injector_procs = []
-
-        # 2) Fallback: taskkill nach Image-Namen
         try:
             for img in self._pnames_injectors():
                 try:
@@ -2027,11 +1855,7 @@ class Watcher:
                     continue
         except Exception:
             pass
-
-        # 3) Status zurücksetzen
         self._injector_started = False
-
-        # 4) Verifikation (optional)
         if verify:
             deadline = time.time() + max(0.2, float(timeout_verify))
             still = []
@@ -2047,11 +1871,7 @@ class Watcher:
 
 
     def _control_fields_for(self, rom: str) -> List[dict]:
-        """
-        Liefert nur die Felder für Steuerung (current_player, player_count, current_ball, Balls Played/ball_count)
-        aus der BASIS-MAP (maps/). Inklusive sicherem Mask/Offset für current_player.
-        Cached pro ROM.
-        """
+      
         if not rom:
             return []
         cached = self._control_fields_cache.get(rom)
@@ -2084,25 +1904,17 @@ class Watcher:
 
   
     def _read_control_signals(self, rom: str) -> Dict[str, int]:
-        """
-        Liest Control-Signale ausschließlich aus BASE\\session_stats\\live.session.json (vom Injector).
-        Kein Löschen/Migrieren. Fallback: direkte .nv-Auswertung aus Basis-Map-Control-Feldern.
-        Erwartetes JSON der DLL (Beispiel):
-          { "rom":"afm_113b", "cp":1, "pc":2, "cb":1, "bp":0 }
-        """
+      
         out: Dict[str, int] = {}
         if not rom:
             return out
 
         live_path = os.path.join(self.cfg.BASE, "session_stats", "live.session.json")
-
-        # 1) Frische live.session.json der DLL
         try:
             if os.path.isfile(live_path):
                 st = os.stat(live_path)
                 if (time.time() - float(st.st_mtime)) <= 3.0:
                     data = load_json(live_path, {}) or {}
-                    # Falls 'rom' im JSON vorhanden ist, muss sie passen
                     if not data or (data.get("rom") and data.get("rom") != rom):
                         pass
                     else:
@@ -2118,8 +1930,6 @@ class Watcher:
                             return out
         except Exception:
             pass
-
-        # 2) Fallback: NVRAM direkt auslesen (Basis-Map-Control-Felder)
         out2: Dict[str, int] = {}
         nv_path = os.path.join(self.cfg.NVRAM_DIR, rom + ".nv")
         if not os.path.exists(nv_path):
@@ -2138,22 +1948,18 @@ class Watcher:
                 out2[lbl] = int(val)
             except Exception:
                 continue
-        # Falls nur "Ball Count" existiert, auf "Balls Played" mappen
         kl = {k.lower(): k for k in out2.keys()}
         if "balls played" not in kl and "ball count" in kl:
             try:
                 out2["Balls Played"] = int(out2[kl["ball count"]])
             except Exception:
                 pass
-        # Zusätzlicher Fallback: wenn es nur 'current_ball' gibt, nutze diesen für 'Balls Played'
         if "Balls Played" not in out2 and "current_ball" in out2:
             try:
                 out2["Balls Played"] = int(out2["current_ball"])
             except Exception:
                 pass
         return out2
-
-    # --- PATCH: _load_map_from_local_rel auf Fallback-Downloader umstellen ---
     def _load_map_from_local_rel(self, rel) -> Tuple[Optional[List[Dict[str, Any]]], Optional[str]]:
         if rel.startswith("maps/"):
             rel = rel[len("maps/"):]
@@ -2170,9 +1976,7 @@ class Watcher:
         return self.parse_map(mj), local
 
     def _emit_mini_info_if_missing_map(self, rom: str, seconds: int = 5):
-        """
-        Show small info overlay for N seconds if no base map exists strictly in BASE\\NVRAM_Maps\\maps.
-        """
+       
         try:
             if not rom:
                 return
@@ -2189,18 +1993,15 @@ class Watcher:
     def load_map_for_rom(self, rom):
         if not rom:
             return None, None
-        # 1) Override
         override = os.path.join(p_overrides(self.cfg), rom + ".json")
         if os.path.exists(override):
             return self.parse_map(load_json(override, {}) or {}), override
-        # 2) Lokale Aliasse (json + map.json)
         alias = os.path.join(p_local_maps(self.cfg), rom + ".json")
         if os.path.exists(alias):
             return self.parse_map(load_json(alias, {}) or {}), alias
         alias2 = os.path.join(p_local_maps(self.cfg), rom + ".map.json")
         if os.path.exists(alias2):
             return self.parse_map(load_json(alias2, {}) or {}), alias2
-        # 3) INDEX
         entry = self.INDEX.get(rom)
         if entry:
             rel = entry if isinstance(entry, str) else (entry.get("path") or entry.get("file"))
@@ -2208,7 +2009,6 @@ class Watcher:
                 f, p = self._load_map_from_local_rel(rel)
                 if f:
                     return f, p
-        # 4) romnames-Umleitung
         base_rom = self.ROMNAMES.get(rom)
         if base_rom and base_rom != rom:
             f, p = self.load_map_for_rom(base_rom)
@@ -2216,7 +2016,6 @@ class Watcher:
                 save_json(alias, load_json(p, {}) or {})
                 log(self.cfg, f"Saved alias map via romnames -> {alias}")
                 return f, alias
-        # 5) Familien-Prefix
         prefix = str(rom).split("_")[0].lower()
         for cand in list(self.INDEX.keys()):
             if not cand.lower().startswith(prefix) or cand == rom:
@@ -2266,10 +2065,7 @@ class Watcher:
         return value + penalty
 
     def _decode_field_value(self, raw: bytes, fld: dict):
-        """
-        Unterstützt encoding: None (uint), 'bcd', 'int', 'bool'
-        Optional: 'mask' (Bitmaske), 'value_offset' (Wertversatz) nach Dekodierung.
-        """
+     
         offset = int(fld["offset"])
         size = int(fld["size"])
         enc = (fld.get("encoding") or "").lower() or None
@@ -2415,12 +2211,9 @@ class Watcher:
                     "endian": end_new,
                     "scale": scale,
                     "signed": signed,
-                    # Masken/Offsets aus Map mit übernehmen
                     "mask": self._to_int(fld.get("mask", 0), 0),
                     "value_offset": self._to_int(fld.get("value_offset", 0), 0),
                 }
-                # Entfernt: kein erzwungenes mask/+1 mehr für current_player
-                # (Wir übernehmen Mask/Offset ausschließlich aus der Map/Auto-Fix-Erkennung.)
                 fixed_fields.append(spec)
                 if (enc_new or None) != (enc or None) or (end_new or None) != (endian or None) or size_new != size:
                     need_override = True
@@ -2503,9 +2296,7 @@ class Watcher:
 
 
     def _find_vpx_pid(self) -> Optional[int]:
-        """
-        PID von Visual Pinball über Fenster-Titel holen.
-        """
+      
         if not win32gui:
             return None
         hwnd = {"h": None}
@@ -2528,16 +2319,8 @@ class Watcher:
             return int(pid.value or 0) or None
         except Exception:
             return None
-
-    # In class Watcher einfügen (z. B. direkt unter _find_vpx_pid)
     def _graceful_close_visual_pinball_player(self, timeout_s: float = 5.0) -> bool:
-        """
-        Schließt den Visual Pinball Player möglichst "sanft":
-        - Erst SC_CLOSE/WM_CLOSE
-        - Dann ALT+F4 als Fallback
-        - Toleranter Fenstertitel-Match (VPX, DX9, etc.)
-        Gibt True zurück, wenn mindestens ein Fenster angesprochen wurde.
-        """
+       
         try:
             import time
             import win32con
@@ -2572,8 +2355,6 @@ class Watcher:
                 except Exception:
                     pass
                 return False
-
-            # 1) Versuche SC_CLOSE/WM_CLOSE
             for hwnd in hwnds:
                 try:
                     win32gui.PostMessage(hwnd, win32con.WM_SYSCOMMAND, win32con.SC_CLOSE, 0)
@@ -2582,12 +2363,9 @@ class Watcher:
                     pass
 
             time.sleep(min(0.5, timeout_s))
-
-            # 2) Fallback ALT+F4 falls noch offen
             for hwnd in hwnds:
                 try:
                     if win32gui.IsWindow(hwnd) and win32gui.IsWindowVisible(hwnd):
-                        # ALT down + F4 down/up + ALT up
                         win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
                         win32api.keybd_event(win32con.VK_F4, 0, 0, 0)
                         win32api.keybd_event(win32con.VK_F4, 0, win32con.KEYEVENTF_KEYUP, 0)
@@ -2612,14 +2390,7 @@ class Watcher:
             return False
         
     def _kill_vpx_process(self):
-        """
-        Beende NUR den Visual Pinball Player:
-        - 1) "Sanft" via WM_CLOSE (graceful)
-        - 2) Fallback ALT+F4 (mit kurzer Wartezeit)
-        - 3) Letzter Fallback erneut WM_CLOSE auf exakte Titel
-        Kein taskkill.
-        """
-        # 1) Graceful
+      
         try:
             if hasattr(self, "_graceful_close_visual_pinball_player"):
                 if self._graceful_close_visual_pinball_player(timeout_s=3.0):
@@ -2627,16 +2398,12 @@ class Watcher:
                     return
         except Exception as e:
             log(self.cfg, f"[CHALLENGE] graceful close failed: {e}", "WARN")
-
-        # 2) ALT+F4 Fallback
         try:
             if self._alt_f4_visual_pinball_player(wait_ms=3000):
                 log(self.cfg, "[CHALLENGE] VP Player closed via Alt+F4")
                 return
         except Exception as e:
             log(self.cfg, f"[CHALLENGE] Alt+F4 failed: {e}", "WARN")
-
-        # 3) Letzter Fallback: WM_CLOSE auf exakten Titel
         try:
             import win32gui, win32con
             def _cb(hwnd, _):
@@ -2656,9 +2423,7 @@ class Watcher:
             log(self.cfg, "[CHALLENGE] WARNING: could not send WM_CLOSE to Visual Pinball Player", "WARN")
 
     def _challenge_mark_pending_kill(self, delay_sec: int = 5):
-        """
-        Mark VPX termination after N seconds and suppress big overlay once.
-        """
+       
         try:
             ch = getattr(self, "challenge", {})
             ch["pending_kill_at"] = time.time() + max(0, int(delay_sec))
@@ -2668,14 +2433,7 @@ class Watcher:
             pass
 
     def start_timed_challenge(self, total_seconds: int = 330):
-        """
-        Start 'Timed Challenge'.
-        Default: 330s total = 30s warm-up + 300s countdown.
-        - Emits warm-up banner immediately
-        - Schedules bottom-left countdown via GUI after warmup (handled in MainWindow)
-        - Arms end_at for automatic kill at the end of the total window
-        Duplicate guard: ignores if a timed challenge is already active.
-        """
+
         try:
             if not self.game_active or not self.current_rom:
                 log(self.cfg, "[CHALLENGE] timed: ignored (no active game)", "WARN")
@@ -2702,11 +2460,8 @@ class Watcher:
                 "suppress_big_overlay_once": True,
             })
             self.challenge = ch
-
-            # GUI: Warm-up Banner + (verzögert) Countdown starten
             try:
                 self.bridge.challenge_warmup_show.emit(warmup, "Timed challenge – warm-up")
-                # Wichtig: wir geben weiterhin 'total' an; der GUI-Handler rechnet warmup ab
                 self.bridge.challenge_timer_start.emit(total)
             except Exception:
                 pass
@@ -2771,8 +2526,6 @@ class Watcher:
             ch["active"] = False
             self.challenge = ch
             log(self.cfg, "[CHALLENGE] one-ball disarmed")
-
-# KLEINER FIX: vor Pre-Kill-Snapshot bei Timed-Challenge kurz warten
     def _challenge_tick(self, audits: dict):
         """
         Called every loop iteration while VPX is active.
@@ -2786,13 +2539,10 @@ class Watcher:
             if ch.get("kind") == "timed":
                 end_at = float(ch.get("end_at", 0.0) or 0.0)
                 if now >= end_at and not ch.get("pending_kill_at"):
-                    # Kurze Pause, damit Komponenten flushen können
                     try:
                         time.sleep(0.5)
                     except Exception:
                         pass
-
-                    # Pre-kill snapshot
                     try:
                         audits_now, _, _ = self.read_nvram_audits_with_autofix(self.current_rom)
                         if audits_now:
@@ -2821,27 +2571,16 @@ class Watcher:
 
 
     def _challenge_best_final_score(self, end_audits: dict, pid: int = 1) -> int:
-        """
-        Liefert den bestmöglichen finalen Score für Spieler pid speziell für Challenges.
-        Reihenfolge:
-          1) Wert aus end_audits
-          2) Wert aus Live-Cache (_last_audits_global)
-          3) Beste Schätzung aus Ball-Tracker
-        """
+   
         try:
-            # 1) End-Audits
             key = f"P{pid} Score"
             v = int((end_audits or {}).get(key, 0) or 0)
             if v > 0:
                 return v
-
-            # 2) Live-Cache
             cache = getattr(self, "_last_audits_global", {}) or {}
             cv = int(cache.get(key, 0) or 0)
             if cv > 0:
                 return cv
-
-            # 3) Ball-Tracker (nur P1 sinnvoll, falls vorhanden)
             if pid == 1:
                 try:
                     balls = (self.ball_track or {}).get("balls", []) or []
@@ -2858,10 +2597,7 @@ class Watcher:
 
 
     def _inject_best_score_for_timed(self, end_audits: dict) -> dict:
-        """
-        Gibt end_audits zurück, bei Timed Challenge mit robustem P1-Score überschrieben.
-        Macht nichts für nicht-timed Challenges.
-        """
+      
         try:
             ch = getattr(self, "challenge", {}) or {}
             if str(ch.get("kind", "")).lower() != "timed":
@@ -2882,10 +2618,7 @@ class Watcher:
 
 
     def _challenge_record_result(self, kind: str, end_audits: dict, duration_sec: int):
-        """
-        Persist a challenge result under BASE/challenges/history/<rom>.json.
-        Also show a small centered result banner for 10s (white text).
-        """
+   
         try:
             ch = getattr(self, "challenge", {}) or {}
             rom = ch.get("rom") or self.current_rom or ""
@@ -2904,15 +2637,12 @@ class Watcher:
                 "duration_sec": int(duration_sec or 0),
                 "score": int(score)
             }
-            # Write
             out_dir = os.path.join(self.cfg.BASE, "challenges", "history")
             ensure_dir(out_dir)
             path = os.path.join(out_dir, f"{sanitize_filename(rom)}.json")
             hist = load_json(path, {"results": []}) or {"results": []}
             hist.setdefault("results", []).append(payload)
             save_json(path, hist)
-
-            # Result banner
             try:
                 msg = f"{'Timed' if kind=='timed' else 'One-Ball'} Challenge – Score: {score:,d}".replace(",", ".")
                 self.bridge.challenge_info_show.emit(msg, 10, "#FFFFFF")
@@ -2934,8 +2664,6 @@ class Watcher:
         if "fields" not in data or not isinstance(data["fields"], dict):
             data["fields"] = {}
         return data
-
-    # DeprecationWarning fix in _fw_save
     def _fw_save(self, rom: str, data: dict):
         data["updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         ensure_dir(p_field_whitelists(self.cfg))
@@ -3018,8 +2746,6 @@ class Watcher:
 
             prev = fldmap.get(label, {})
             manual = prev.get("manual_override")
-
-            # Niemals whitelisted zurückstufen (außer force_noise)
             if prev.get("classification") in ("whitelisted", "stale") and manual != "force_noise":
                 cls = "whitelisted"
 
@@ -3040,15 +2766,6 @@ class Watcher:
                 "first_seen_ts": prev.get("first_seen_ts", st["first_seen_ts"]),
                 "last_seen_ts": st["last_seen_ts"]
             }
-
-        # KEINE Demotion mehr auf "stale" – Whitelist soll nur wachsen.
-        # (Optional: Wenn du "stale" behalten willst, kommentiere die nächste Schleife einfach aus.)
-        # cutoff = time.time() - 14 * 24 * 3600
-        # for lbl, meta in fldmap.items():
-        #     if meta.get("classification") == "whitelisted" and meta.get("last_seen_ts", time.time()) < cutoff:
-        #         meta["classification"] = "stale"
-
-        # Falls noch keine whitelisted vorhanden: beste Kandidaten befördern
         if not any(meta.get("classification") == "whitelisted" for meta in fldmap.values()):
             candidates = [(lbl, m) for lbl, m in fldmap.items() if m.get("classification") == "candidate"]
             candidates.sort(key=lambda x: x[1].get("auto_score", 0), reverse=True)
@@ -3057,8 +2774,6 @@ class Watcher:
                 promotions_needed = True
 
         self._fw_save(rom, data)
-
-        # Aktiv: Whitelist = 'whitelisted' ODER 'stale'
         wl = {f for f, meta in fldmap.items() if meta.get("classification") in ("whitelisted", "stale")}
         self.active_field_whitelist = wl
         if wl:
@@ -3067,10 +2782,7 @@ class Watcher:
         log(self.cfg, f"[FW] Classified {len(fldmap)} fields -> whitelist={len(wl)} promoted={promotions_needed} bootstrap={self.bootstrap_phase}")
 
     def _snap_reset(self, audits: dict):
-        """
-        Initialisiert den Snapshot-/Segmentmodus. Setzt die Baseline und
-        merkt sich den aktuellen 'Balls Played'-Stand case-insensitive.
-        """
+     
         self.snap_player = 1
         self.snap_start_audits = dict(audits)
         self.snap_initialized = True
@@ -3089,7 +2801,6 @@ class Watcher:
 
 
     def _snap_detect_players(self, audits: dict):
-        # 1) Direkt aus game_state.player_count (via Map/Injector), case-insensitive
         try:
             pc = int(self._nv_get_int_ci(audits, "player_count", 0))
             if 1 <= pc <= 4:
@@ -3100,12 +2811,8 @@ class Watcher:
                 return
         except Exception:
             pass
-
-        # Wenn schon sicher gelockt auf >=2 Spieler, nicht weiter raten
         if self.snap_players_locked and self.snap_players_in_game >= 2:
             return
-
-        # 2) Fallback: Audit-Deltas seit Session-Start
         def d(lbl_ci: str) -> int:
             try:
                 s = int(self._nv_get_int_ci(self.start_audits, lbl_ci, 0))
@@ -3122,8 +2829,6 @@ class Watcher:
             self.snap_players_in_game = 3
         if d("2 Player Games") > 0 and self.snap_players_in_game < 2:
             self.snap_players_in_game = 2
-
-        # 3) Letzter Fallback: Präsenz von Pn Score im Snapshot
         for pid in (4, 3, 2):
             key = f"P{pid} Score"
             try:
@@ -3133,35 +2838,21 @@ class Watcher:
                 pass
   
     def _snap_field_allowed(self, label: str) -> bool:
-           # Harte Filterung ‘BONUS X’
         if self._exclude_bonus_x_field(label):
             return False
-        # Grundfilter
         if not isinstance(label, str):
             return False
-
-        # Harte Excludes (spezielle Last-/Reset-/Timestamp-/Overall-Felder)
         if is_excluded_field(label):
             return False
 
         ll = label.lower()
-
-        # Scores generell raus
         if "score" in ll:
             return False
-
-        # Generisches Rauschen
         if self.NOISE_REGEX.search(label):
             return False
-
-        # Wenn eine Whitelist existiert, erlauben wir:
-        # 1) Whitelisted Felder
-        # 2) Zusätzlich plausible Felder (Exploration), damit die Whitelist wachsen kann
         if self.active_field_whitelist:
             if label in self.active_field_whitelist:
                 return True
-
-            # Exploration-Heuristik: Keywords/Generics/kurze plausible Labels
             if any(k in ll for k in self.KEYWORD_FALLBACK):
                 return True
 
@@ -3172,14 +2863,10 @@ class Watcher:
             ]
             if any(g in ll for g in GENERIC_OK):
                 return True
-
-            # sehr kurze, plausible Labels ohne typische Rausch-Wörter
             if len(label) <= 24 and not any(bad in ll for bad in ["total ", "recent", "minutes", "play time", "reset", "coin", "last "]):
                 return True
 
             return False
-
-        # Fallback-Heuristiken (bis Whitelist gelernt ist)
         if any(k in ll for k in self.KEYWORD_FALLBACK):
             return True
 
@@ -3190,8 +2877,6 @@ class Watcher:
         ]
         if any(g in ll for g in GENERIC_OK):
             return True
-
-        # In ganz frühen Sessions: kurze, plausible Labels zulassen (ohne typische Rauschwörter)
         if not self.field_stats:
             if len(label) <= 24 and not any(bad in ll for bad in ["total ", "recent", "minutes", "play time", "reset", "coin", "last "]):
                 return True
@@ -3200,23 +2885,15 @@ class Watcher:
 
 
     def _exclude_bonus_x_field(self, label: str) -> bool:
-        """
-        Returns True if the given audit/field label should be excluded from Session-Deltas/Highlights,
-        specifically filters out 'BONUS X' (case-insensitive, tolerates leading/trailing spaces).
-        """
+     
         try:
             ll = str(label).strip().lower()
         except Exception:
             return False
-        # Exakt 'bonus x' oder Varianten wie 'bonus x ....' blocken
         return ll == "bonus x" or ll.startswith("bonus x ")
         
     def _snap_diff(self, start: dict, end: dict) -> dict:
-        """
-        Berechnet die Feldänderungen (Deltas) zwischen zwei Snapshots,
-        korrigiert um globale Felder und mehrfach gezählte Werte.
-        Nur whitelisted bzw. plausible Felder werden berücksichtigt.
-        """
+    
         diff = {}
         for label, v_end in end.items():
             if not isinstance(label, str):
@@ -3231,19 +2908,12 @@ class Watcher:
             except Exception:
                 continue
             d = e - s
-
-            # --- Korrektur: negative Deltas bei Wraparound abfangen ---
             if d < 0:
                 d = (65536 - s) + e
-
-            # --- Filter gegen globale Felder ---
             ll = label.lower()
             if "total" in ll or "overall" in ll or "recent" in ll or "cleared" in ll:
                 continue
-
-            # --- Nur plausible Zuwächse ---
             if 0 < d < 1000000:
-                # Games Started darf nur im ersten Segment gezählt werden
                 if "games started" in ll and self.snap_segment_index > 0:
                     continue
                 diff[label] = d
@@ -3251,14 +2921,10 @@ class Watcher:
 
 
     def _snap_finalize_segment(self, audits: dict, note: str = ""):
-        # Nur wenn SNAP aktiv und initialisiert
         if not self.snap_initialized:
             return
-        # WICHTIG: Vor dem ersten echten Spiel KEINE Segmente finalisieren
         if not getattr(self, "_snap_bootstrap_done", False):
             return
-
-        # Valider Spieler (1..4) zwingend
         try:
             pid = int(self.snap_player or 0)
         except Exception:
@@ -3268,18 +2934,11 @@ class Watcher:
             return
 
         try:
-            # Segmentdauer
             seg_start = self.snap_segment_start_time or time.time()
             segment_duration = float(time.time() - seg_start)
-
-            # Deltas dieses Segments
             diff = self._snap_diff(self.snap_start_audits, audits)
-
-            # Feld-Statistiken sammeln (für Auto-Whitelist)
             if diff:
                 self._fw_record_field_stats(pid, diff, segment_duration)
-
-                # Laufende Spieler-Session-Deltas auffüllen (nur Nicht-Score-Felder)
                 try:
                     rec = self.players.setdefault(pid, {
                         "start_audits": self._player_field_filter(self.start_audits, pid) or {f"P{pid} Score": 0},
@@ -3295,8 +2954,6 @@ class Watcher:
                         rec["session_deltas"][k] = rec["session_deltas"].get(k, 0) + int(v)
                 except Exception:
                     pass
-
-            # Periodisch klassifizieren (z. B. alle 3 Segmente)
             try:
                 if self.snap_segment_index >= self.MIN_SEGMENTS_FOR_CLASSIFICATION and (self.snap_segment_index % 3 == 0):
                     self._fw_classify_fields(self.current_rom)
@@ -3305,9 +2962,6 @@ class Watcher:
 
         except Exception as e:
             log(self.cfg, f"[SNAP] finalize segment failed: {e}", "WARN")
-
-
-    # In class Watcher: _snap_rotate – am Ende Debounce setzen
     def _snap_rotate(self, audits: dict, steps: int = 1):
         if not getattr(self, "_snap_bootstrap_done", False):
             return
@@ -3332,14 +2986,9 @@ class Watcher:
         log(self.cfg, f"[SNAP] rotate -> active player {self.snap_player}", "INFO")
 
     def _maybe_rotate_on_current_player(self, audits: dict):
-        """
-        Rotiert auf Basis eines Current-Player-Felds aus den Audits (aus der Map normalisiert).
-        Direkt nach Bootstrap optional gesperrt, um Pre-Game-Peaks zu ignorieren.
-        """
+     
         if not (self.snapshot_mode and self.snap_initialized and getattr(self, "_snap_bootstrap_done", False)):
             return
-
-        # Sperrfenster nach Bootstrap: CP-Rotation kurz ignorieren
         try:
             if hasattr(self, "_cp_rotate_lock_until") and time.time() < float(self._cp_rotate_lock_until or 0):
                 return
@@ -3377,19 +3026,12 @@ class Watcher:
         log(self.cfg, f"[SNAP] current-player -> switched to P{self.snap_player}")
     
     def _maybe_rotate_on_score_delta(self, audits: dict):
-        """
-        Fallback-Rotation auf Basis von Pn Score-Deltas (ingame, live).
-        Wenn genau EIN Spieler in diesem Tick Punkte gemacht hat, rotiert auf diesen Spieler.
-        - Debounced über CP_MIN_ROTATE_INTERVAL
-        - Ignoriert Cases mit mehreren gleichzeitigen Scorern im selben Tick
-        """
+       
         if not (self.snapshot_mode and self.snap_initialized and getattr(self, "_snap_bootstrap_done", False)):
             return
         now = time.time()
         if now - getattr(self, "_last_rotate_ts", 0.0) < float(self.CP_MIN_ROTATE_INTERVAL):
             return
-
-        # Hole aktuelle Scores aus Audits
         deltas: Dict[int, int] = {}
         for pid in range(1, max(1, int(self.snap_players_in_game or 4)) + 1):
             key = f"P{pid} Score"
@@ -3397,7 +3039,6 @@ class Watcher:
                 cur = int(audits.get(key, 0) or 0)
             except Exception:
                 cur = 0
-            # Vorheriger Stand aus last_audits (falls leer -> start_audits -> 0)
             prev = 0
             try:
                 prev = int(self.players.get(pid, {}).get("last_audits", {}).get(key, 0) or 0)
@@ -3412,11 +3053,9 @@ class Watcher:
 
         if not deltas:
             return
-        # Eindeutigen Scorer ermitteln (genau einer mit maximalem Delta)
         sorted_p = sorted(deltas.items(), key=lambda x: x[1], reverse=True)
         top_pid, top_delta = sorted_p[0]
         if len(sorted_p) > 1 and sorted_p[1][1] == top_delta:
-            # unklar – mehrere Scorer gleicher Höhe im selben Tick -> ignorieren
             return
 
         try:
@@ -3425,8 +3064,6 @@ class Watcher:
             current = 1
         if top_pid == current:
             return
-
-        # Segment finalisieren und rotieren
         try:
             self._snap_finalize_segment(audits, note="(score-switch)")
         except Exception as e:
@@ -3461,20 +3098,11 @@ class Watcher:
                 return 0
 
     def _compute_player_deltas(self, audits_end: dict):
-        """
-        Berechnet am Session-Ende pro Spieler die Deltas aus gespeicherten Audit-Ständen.
-        Nutzt globale NVRAM-Audits, aber getrennt nach Spielerwechseln.
-        - Läuft nur, wenn ein echtes Spiel gebootstrapped wurde.
-        - Akzeptiert nur Spieler-IDs 1..4.
-        - Weist jedem Spieler diff(start_audits, end_audits) zu.
-        """
-        # Falls nie ein echtes Spiel erkannt wurde -> keine Spieler-Deltas
+     
         if not getattr(self, "_snap_bootstrap_done", False):
             return {}
 
         deltas_by_player = {}
-
-        # Letzten aktiven Spieler abschließen (nur wenn pid 1..4 und vorhanden)
         try:
             last_pid = int(self.snap_player or 0)
         except Exception:
@@ -3483,7 +3111,6 @@ class Watcher:
             self.players[last_pid]["end_audits"] = dict(audits_end)
 
         for pid, pdata in list(self.players.items()):
-            # sichere int-ID und Bereich prüfen
             try:
                 ipid = int(pid)
             except Exception:
@@ -3501,8 +3128,6 @@ class Watcher:
             deltas_by_player[ipid] = diff
 
             log(self.cfg, f"[SNAP] Computed delta for P{ipid}: {len(diff)} fields")
-
-        # Globale Summe aus allen Spieler-Deltas bilden (nur Information)
         self.global_session_deltas = {}
         for _p, diff in deltas_by_player.items():
             for k, v in diff.items():
@@ -3512,24 +3137,9 @@ class Watcher:
 
 
     def _compute_player_deltas_end_only(self, start: dict, end: dict) -> dict[int, dict]:
-        """
-        Mehrspieler-Fallback OHNE Live-Segmente:
-        - Globale Deltas Start->Ende (negatives => 0).
-        - Korrigiert 'Games Started' und 'Balls Played' relativ zur Bootstrap-Basis.
-        - Per-Player-Felder (Pn ...) direkt.
-        - Globale Felder proportional verteilt – aber mit robusteren Gewichten:
-            1) Score-Deltas (wenn vorhanden)
-            2) sonst End-Scores (falls > 0)
-            3) sonst Gleichverteilung (min. Gewicht 1 je Spieler)
-        - Meta-Felder werden NICHT leistungsgewichtet, sondern sinnvoll verteilt:
-            * 'Games Started', '[2-4] Player Games', 'Balls Played' -> kopiere zu ALLEN Spielern (1:1)
-            * 'Game Time ...' -> gleichmäßig verteilen
-        """
-        # Spielerzahl sicher bestimmen (max 4, mind. 2 wenn Multi vermutet)
+
         nplayers = self._infer_players_in_game_from_audits(start, end)
         nplayers = max(2, min(int(nplayers or 2), 4))
-
-        # Score-Deltas und End-Scores einsammeln
         score_deltas: dict[int, int] = self._score_deltas_from_audits(start, end, nplayers)
         end_scores: dict[int, int] = {}
         for pid in range(1, nplayers + 1):
@@ -3541,23 +3151,16 @@ class Watcher:
 
         tot_delta = sum(max(0, int(v)) for v in score_deltas.values())
         tot_end = sum(max(0, int(v)) for v in end_scores.values())
-
-        # Gewichte bestimmen
         weights: dict[int, float] = {}
         if tot_delta > 0:
-            # 1) Score-Deltas
             for pid in range(1, nplayers + 1):
                 weights[pid] = float(max(0, int(score_deltas.get(pid, 0))))
         elif tot_end > 0:
-            # 2) End-Scores
             for pid in range(1, nplayers + 1):
                 weights[pid] = float(max(0, int(end_scores.get(pid, 0))))
         else:
-            # 3) Gleichverteilung (min. 1 je Spieler)
             for pid in range(1, nplayers + 1):
                 weights[pid] = 1.0
-
-        # Korrekturen (Games Started, Balls Played) relativ zur Bootstrap-Basis
         try:
             end_g = self._nv_get_int_ci(end, "Games Started", 0)
             base_g = int(getattr(self, "_snap_bootstrap_games",
@@ -3584,8 +3187,6 @@ class Watcher:
         except Exception:
             corr_bp_delta = None
             corr_bp_lbl = None
-
-        # Globale Deltas (mit strikterem Filter)
         CONTROL_FIELDS = {
             "current_player", "player_count", "current_ball", "balls played",
             "credits", "tilted", "game over", "tilt warnings"
@@ -3606,16 +3207,12 @@ class Watcher:
             if d < 0:
                 d = 0
             global_deltas[k] = d
-
-        # Korrekturen in globale Deltas zurückschreiben
         if corr_g_delta is not None:
             km = {k.lower(): k for k in global_deltas.keys()}
             if "games started" in km:
                 global_deltas[km["games started"]] = int(corr_g_delta)
         if corr_bp_delta is not None and corr_bp_lbl:
             global_deltas[corr_bp_lbl] = int(corr_bp_delta)
-
-        # Per-Player-Felder direkt
         per_player_direct: dict[int, dict] = {pid: {} for pid in range(1, nplayers + 1)}
         for pid in range(1, nplayers + 1):
             sP = self._player_field_filter(start, pid)
@@ -3633,11 +3230,7 @@ class Watcher:
                     d = 0
                 if d > 0:
                     per_player_direct[pid][k] = d
-
-        # Ergebnis vorbereiten
         assigned_by_pid: dict[int, dict] = {pid: dict(per_player_direct[pid]) for pid in range(1, nplayers + 1)}
-
-        # Regex für Meta-Felder
         re_copy_all = [
             re.compile(r"^\s*games\s+started\s*$", re.I),
             re.compile(r"^\s*[234]\s*player\s+games\s*$", re.I),
@@ -3646,20 +3239,14 @@ class Watcher:
         re_equal_share = [
             re.compile(r"^\s*game\s+time\b", re.I),
         ]
-
-        # Verteile globale Deltas
         for k, d in global_deltas.items():
             if d <= 0:
                 continue
             kl = k.lower()
-
-            # 1) Felder, die zu allen Spielern 1:1 kopiert werden
             if any(rx.match(k) for rx in re_copy_all):
                 for pid in range(1, nplayers + 1):
                     assigned_by_pid[pid][k] = assigned_by_pid[pid].get(k, 0) + int(d)
                 continue
-
-            # 2) Felder, die gleichmäßig geteilt werden
             if any(rx.match(k) for rx in re_equal_share):
                 equal_weights = {pid: 1.0 for pid in range(1, nplayers + 1)}
                 alloc = self._allocate_int_proportional(int(d), equal_weights)
@@ -3667,14 +3254,10 @@ class Watcher:
                     if share > 0:
                         assigned_by_pid[pid][k] = assigned_by_pid[pid].get(k, 0) + int(share)
                 continue
-
-            # 3) Standard: gewichtete Verteilung (robuste Gewichte)
             alloc = self._allocate_int_proportional(int(d), weights)
             for pid, share in alloc.items():
                 if share > 0:
                     assigned_by_pid[pid][k] = assigned_by_pid[pid].get(k, 0) + int(share)
-
-        # Debug: Gewichte einmal loggen
         try:
             w_str = ", ".join([f"P{pid}={int(weights.get(pid, 0))}" for pid in range(1, nplayers + 1)])
             self.cfg and log(self.cfg, f"[SNAP] end-only weights: {w_str}")
@@ -3721,15 +3304,8 @@ class Watcher:
         return events
 
     def _attribute_events(self, audits: dict) -> bool:
-        """
-        Attribuiert Zuwächse aus globalen audits in die aktuellen Spieler-Records.
-        Rückgabe: True, wenn mindestens ein Event_count inkrementiert wurde.
-        - Ignoriert Pn-Felder und Score-Felder.
-        - Aktualisiert self._last_global_for_player_attr für die nächste Tick-Vergleichsbasis.
-        """
+  
         if not audits or not getattr(self, "current_player", None) or (self.current_player not in self.players):
-            # Keine Spieler aktiv / kein Grund zu attribuieren
-            # Speichere trotzdem den letzten globalen Snapshot sauber für nächste Runde
             try:
                 self._last_global_for_player_attr = {
                     k: v for k, v in audits.items() if isinstance(k, str) and not k.startswith("P")
@@ -3772,15 +3348,11 @@ class Watcher:
             diff = now_i - old_i
             if diff <= 0:
                 continue
-
-            # sichere Session-Deltas
             try:
                 sd = player_rec.setdefault("session_deltas", {})
                 sd[label] = sd.get(label, 0) + int(diff)
             except Exception:
                 pass
-
-            # Event-Schlüssel erkennen und zählen
             for ev_key, words in (self.EVENT_KEYWORDS or {}).items():
                 if any(w in ll for w in words):
                     try:
@@ -3790,8 +3362,6 @@ class Watcher:
                     except Exception:
                         pass
                     break
-
-        # Update last_global baseline (nur Nicht-Pn Felder)
         try:
             self._last_global_for_player_attr = {
                 k: v for k, v in audits.items() if isinstance(k, str) and not k.startswith("P")
@@ -3802,11 +3372,7 @@ class Watcher:
         return bool(changed)
 
     def _icon(self, key: str, prefer_ascii: bool | None = None) -> str:
-        """
-        Liefert ein Symbol pro Highlight-Schlüssel.
-        Fallback: ASCII-Icons, damit im Overlay kein '??' erscheint, wenn Emoji-Fonts fehlen.
-        Du kannst mit cfg.OVERLAY['prefer_ascii_icons'] = False Emojis erzwingen.
-        """
+    
         ov = getattr(self.cfg, "OVERLAY", {}) or {}
         use_ascii = ov.get("prefer_ascii_icons", True) if prefer_ascii is None else bool(prefer_ascii)
 
@@ -3839,7 +3405,6 @@ class Watcher:
             }
             return ascii_map.get(key, "[*]")
         else:
-            # Emoji-Map (falls Fonts vorhanden)
             emoji_map = {
                 "best_ball": "🔥",
                 "wizard_mode": "🧙",
@@ -3871,20 +3436,13 @@ class Watcher:
 
 
     def analyze_session(self, stats: dict) -> dict:
-        """
-        Build highlight lines per category from stats['events'].
-        - Uses 'events' (even if playtime_sec==0), duration_sec is only for optional rates.
-        - ASCII icon fallback so no '??' appear in the overlay when emoji fonts are missing.
-        - NOTE: Best Ball is intentionally NOT rendered anymore.
-        """
+       
         events = stats.get("events", {}) or {}
         duration_sec = int(stats.get("duration_sec", 0) or 0)
         lines_per_cat = int((self.cfg.OVERLAY or {}).get("lines_per_category", 5))
 
         out = {"Power": [], "Precision": [], "Fun": []}
         buckets = {"Power": [], "Precision": [], "Fun": []}
-
-        # Werte auf Kategorien verteilen (Best Ball wird NICHT mehr hinzugefügt)
         for key, rule in (self.HIGHLIGHT_RULES or {}).items():
             if key == "best_ball":
                 continue  # entfernt
@@ -3906,9 +3464,6 @@ class Watcher:
                         buckets[cat].append((150, f"{icon} {rule.get('label','')} – {v}"))
                 elif bool(v):
                     buckets[cat].append((150, f"{icon} {rule.get('label','')} – Yes"))
-            # 'always' wird ignoriert (z. B. best_ball)
-
-        # Top N je Kategorie
         for cat in ["Power", "Precision", "Fun"]:
             arr = sorted(buckets[cat], key=lambda x: x[0], reverse=True)[:max(1, lines_per_cat)]
             out[cat] = [s for _, s in arr]
@@ -3916,10 +3471,7 @@ class Watcher:
         return out
 
     def _get_balls_played(self, audits: dict) -> Optional[int]:
-        """
-        Primär: 'Balls Played' (case-insensitive).
-        Sekundär: 'Ball Count' aus game_state als 'Balls Played'.
-        """
+       
         kl = {str(k).lower(): k for k in audits.keys()}
         for key in ["balls played", "games balls played", "total balls played"]:
             if key in kl:
@@ -4011,19 +3563,15 @@ class Watcher:
             self.ball_track["current_pid"] = cp
             self.ball_track["start_time"] = time.time()
             self.ball_track["score_base"] = self._find_score_from_audits(current_audits, pid=cp)
-
-            # One-Ball Challenge: end as soon as Balls Played increases once
             try:
                 ch = getattr(self, "challenge", {})
                 if ch.get("active") and ch.get("kind") == "oneball" and ch.get("one_ball_active", False):
                     base = int(ch.get("baseline_bp", 0))
                     if int(bp) >= base + 1 and not ch.get("pending_kill_at"):
-                        # Pre-kill Snapshot sichern (aktueller Audit-Stand)
                         try:
                             ch["prekill_end"] = dict(current_audits or {})
                         except Exception:
                             pass
-                        # 3s delayed kill (gleich wie Timed)
                         ch["one_ball_active"] = False
                         ch["pending_kill_at"] = time.time() + 3.0
                         self.challenge = ch
@@ -4062,10 +3610,7 @@ class Watcher:
         }
 
     def _compute_session_deltas(self, start: dict, end: dict) -> dict:
-        """
-        Rohe globale Deltas Start->Ende für Nicht-Spielerfelder.
-        Negative Deltas werden auf 0 geklemmt (Wraps/Resets).
-        """
+       
         out = {}
         if not isinstance(end, dict):
             return out
@@ -4085,10 +3630,7 @@ class Watcher:
         return out
 
     def _infer_players_in_game_from_audits(self, start: dict, end: dict) -> int:
-        """
-        Bestimmt die Spieleranzahl am Ende der Session (case-insensitive).
-        Priorität: game_state.player_count -> Audit-Deltas -> Pn Score Präsenz.
-        """
+     
         try:
             pc = int(self._nv_get_int_ci(end, "player_count", 0))
             if 1 <= pc <= 6:
@@ -4120,9 +3662,7 @@ class Watcher:
 
 
     def _score_deltas_from_audits(self, start: dict, end: dict, players: int) -> dict[int, int]:
-        """
-        Score-Deltas je Spieler (>=0).
-        """
+      
         out = {}
         for pid in range(1, max(1, int(players)) + 1):
             key = f"P{pid} Score"
@@ -4137,10 +3677,7 @@ class Watcher:
 
 
     def _allocate_int_proportional(self, total: int, weights: dict[int, float]) -> dict[int, int]:
-        """
-        Verteilt 'total' als ganze Zahlen nach Gewichten auf Keys aus 'weights'.
-        Summe der Rückgaben == total. Stabil mit Resteverteilung.
-        """
+        
         if total <= 0 or not weights:
             return {k: 0 for k in weights.keys()}
         s = sum(max(0.0, float(w)) for w in weights.values())
@@ -4169,15 +3706,8 @@ class Watcher:
                 out[k] += 1
                 rem -= 1
         return out
-
-
-    # --- REPLACE: realistischere Fallback-Parameter pro Difficulty (ohne globalen Score-Scaler) ---
     def _cpu_params_for(self, difficulty: str) -> dict:
-        """
-        Events/Minute + Fallback-Score je Event.
-        Hinweis: Wenn das globale Modell (w) gelernt ist, hat das Priorität und
-        diese Fallbacks greifen nur selten. Pro ist moderat höher, nicht absurd.
-        """
+     
         d = (difficulty or "").lower()
         if d == "leicht":
             return {"events_per_min": 6,  "score_min": 30_000,   "score_max": 120_000}
@@ -4185,13 +3715,10 @@ class Watcher:
             return {"events_per_min": 10, "score_min": 80_000,   "score_max": 400_000}
         if d == "schwer":
             return {"events_per_min": 14, "score_min": 250_000,  "score_max": 1_200_000}
-        # pro – leicht höherer Durchsatz + Millionenbereich als Fallback
         return {"events_per_min": 20, "score_min": 1_000_000, "score_max": 6_000_000}
 
     def _cpu_params_pg(self, difficulty: str) -> dict:
-        """
-        Postgame-Sim: gleiches Kaliber wie live, damit die Einschätzungen konsistent wirken.
-        """
+       
         d = (difficulty or "").lower()
         if d == "leicht":
             return {"events_per_min": 6,  "score_min": 30_000,   "score_max": 120_000}
@@ -4199,13 +3726,10 @@ class Watcher:
             return {"events_per_min": 10, "score_min": 80_000,   "score_max": 400_000}
         if d == "schwer":
             return {"events_per_min": 14, "score_min": 250_000,  "score_max": 1_200_000}
-        # pro
         return {"events_per_min": 20, "score_min": 1_000_000, "score_max": 6_000_000}
 
     def _cpu_label_caps_for(self, difficulty: str) -> dict:
-        """
-        Harte Session-Caps für 'überdrehende' Labels pro Schwierigkeit.
-        """
+        
         d = (difficulty or "mittel").lower()
         if d == "leicht":
             return {"Extra Balls": 1, "Ball Saves": 8,  "Total Multiballs": 1, "Jackpots": 3, "Modes Completed": 1}
@@ -4213,14 +3737,10 @@ class Watcher:
             return {"Extra Balls": 2, "Ball Saves": 12, "Total Multiballs": 2, "Jackpots": 4, "Modes Completed": 2}
         if d == "schwer":
             return {"Extra Balls": 3, "Ball Saves": 18, "Total Multiballs": 3, "Jackpots": 6, "Modes Completed": 3}
-        # pro
         return {"Extra Balls": 4, "Ball Saves": 22, "Total Multiballs": 4, "Jackpots": 8, "Modes Completed": 4}
 
     def _cpu_ai_get_model(self) -> dict:
-        """
-        Lädt das globale Lernmodell (mit Cache, Reload alle 30s).
-        Struktur wie in _ai_load_global_model().
-        """
+        
         try:
             now = time.time()
             nxt = float(getattr(self, "_cpu_ai_next_reload", 0.0) or 0.0)
@@ -4234,11 +3754,7 @@ class Watcher:
             return {"events": {}, "meta": {}}
 
     def _cpu_label_for_event(self, key: str) -> str:
-        """
-        Mappt einen Event-Key (jackpot, multiball, ...) auf ein plausibles
-        Audit-Label, das im Overlay als Session-Delta erscheint und von
-        _build_events_from_deltas erkannt wird (Keywords!).
-        """
+       
         mapping = {
             "jackpot": "Jackpots",
             "super_jackpot": "Super Jackpot",
@@ -4260,18 +3776,13 @@ class Watcher:
             "tilt_warnings": "Tilt Warnings",
             "tilt": "Tilt",
             "match": "Match",
-            # Fallback
             "best_ball": "Best Ball",
             "wizard_mode": "Wizard Mode",
         }
         return mapping.get(key, key.capitalize())
 
     def _cpu_ai_pick_event_keys(self, k: int, model: dict) -> list[str]:
-        """
-        Wählt k Event-Keys:
-          - Basis: gelernte Werte (value_per_event) aus model['events']
-          - plus Difficulty-Multiplikatoren (z. B. EB stark dämpfen, Jackpots boosten)
-        """
+      
         base_pool = [
             "jackpot", "multiball", "ramps", "loops", "spinner", "orbit",
             "combo", "drop_targets", "skillshot", "super_skillshot",
@@ -4280,7 +3791,6 @@ class Watcher:
         events = (model or {}).get("events", {}) or {}
 
         diff = str((self.cpu or {}).get("difficulty", "mittel")).lower()
-        # Multiplikatoren je Stufe – Extra Balls stark runter, Jackpots leicht rauf
         diff_weights_map = {
             "leicht": {"extra_ball": 0.08, "ball_save": 0.7,  "jackpot": 1.10, "multiball": 1.00,
                        "ramps": 1.05, "loops": 1.05, "spinner": 1.0, "orbit": 1.0, "combo": 1.05,
@@ -4320,15 +3830,8 @@ class Watcher:
                     break
             picks.append(choice)
         return picks
-
-    # --- REPLACE: Score pro Event – human-like Multiplikatoren + MB-Boost ---
     def _cpu_score_for_event(self, key: str, params: dict, model: dict) -> int:
-        """
-        Punktebeitrag für ein einzelnes Event:
-        1) Bevorzugt: normalverteilt um das gelernte w (value_per_event)
-        2) Fallback: Difficulty-Range + Event-Multiplikator (realistischer gewichtet)
-        3) Multiball-Bonus: Jackpots sind in MB deutlich wertvoller; Combos leicht erhöht
-        """
+  
         try:
             slot = (model or {}).get("events", {}).get(key) or {}
             w = float(slot.get("w", 0.0) or 0.0)
@@ -4347,7 +3850,6 @@ class Watcher:
             smin = int(params.get("score_min", 100_000))
             smax = int(params.get("score_max", 300_000))
             base = random.randint(smin, smax)
-            # Realistischere Relationen: Super/Triple Jackpot >> Jackpot > MB > Combos > Ramps/Loops
             mult = {
                 "super_jackpot": 6.0,
                 "triple_jackpot": 8.0,
@@ -4370,8 +3872,6 @@ class Watcher:
                 "match": 0.0,
             }.get(key, 1.0)
             val = int(base * max(-0.8, mult))
-
-        # Multiball-Bonus (Jackpots/Combos profitieren, wenn MB-Fenster aktiv)
         try:
             st = (self.cpu or {}).get("state", {}) or {}
             now = time.time()
@@ -4385,9 +3885,7 @@ class Watcher:
 
 
     def _cpu_diff_multipliers(self, difficulty: str) -> dict:
-        """
-        Difficulty-Gewichte pro Eventtyp (dämpft z. B. Extra Balls) – nur Postgame.
-        """
+       
         d = (difficulty or "mittel").lower()
         table = {
             "leicht": {"extra_ball": 0.08, "ball_save": 0.7,  "jackpot": 1.10, "multiball": 1.00,
@@ -4406,9 +3904,7 @@ class Watcher:
         return table.get(d, table["mittel"])
 
     def _cpu_build_weighted_pool(self, model: dict, diff_mult: dict) -> list[tuple[str, float]]:
-        """
-        Gewichteter Pool (Key -> Gewicht) aus globalem Modell + Difficulty – nur Postgame.
-        """
+       
         base_pool = [
             "jackpot", "multiball", "ramps", "loops", "spinner", "orbit",
             "combo", "drop_targets", "skillshot", "super_skillshot",
@@ -4434,16 +3930,8 @@ class Watcher:
             if r <= acc:
                 return key
         return weighted[0][0]
-
-    # --- REPLACE: Postgame-Sim – gleicher “menschlicher” Stil wie live (mit Korrelation) ---
     def _cpu_postgame_simulate(self, rom: str, duration_sec: int):
-        """
-        Monte-Carlo Postgame-Simulation:
-          - Budget = Events/Minute * Dauer
-          - Berücksichtigt Korrelationen/State (Modes, MB, Combos)
-          - Utility = Score + Diversität (wie gehabt)
-          - Ergebnis -> Player 5 (nur Overlay/Stats)
-        """
+        
         if not bool((self.cfg.OVERLAY or {}).get("cpu_sim_active", True)):
             return
 
@@ -4470,8 +3958,6 @@ class Watcher:
             ev: dict[str, int] = {}
             score = 0
             kinds = set()
-
-            # lokaler State wie live
             st = {"modes_in_progress": [], "multiball_until": 0.0, "balls_next_ts": 0.0}
             def pick_weighted():
                 total = sum(w for _, w in weighted_pool) or 1.0
@@ -4484,7 +3970,6 @@ class Watcher:
                 return weighted_pool[0][0]
 
             for _i in range(ev_budget):
-                # 1) Budgetiertes Event
                 key = pick_weighted()
                 lab = self._cpu_label_for_event(key)
                 cmax = caps.get(lab)
@@ -4492,15 +3977,11 @@ class Watcher:
                     sd[lab] = int(sd.get(lab, 0)) + 1
                     ev[key] = int(ev.get(key, 0)) + 1
                     kinds.add(key)
-                    # Score inkl. MB-Bonus (nutzt self.cpu.state normalerweise – hier simulieren wir inline)
-                    # Temporär simuliere MB-Bonus mit einfacher Abfrage auf Fenster
                     mb_active = (time.time() < float(st.get("multiball_until", 0.0)))
                     val = self._cpu_score_for_event(key, params, model)
                     if mb_active and key in ("jackpot", "super_jackpot", "triple_jackpot", "combo"):
                         val = int(val * 1.5)
                     score += int(max(0, val))
-
-                    # State: MB-Fenster, Combos, Modes
                     if key == "multiball":
                         lo, hi = corp["mb_window_s"]
                         st["multiball_until"] = time.time() + random.uniform(lo, hi)
@@ -4520,9 +4001,6 @@ class Watcher:
                         if random.random() < random.uniform(plo, phi):
                             dlo, dhi = corp["mode_delay_s"]
                             st["modes_in_progress"].append({"due": time.time() + random.uniform(dlo, dhi)})
-
-                # 2) Korrelierte “kostenlose” Effekte pro Schritt
-                # A) Mode-Completion fällig?
                 keep = []
                 for slot in st.get("modes_in_progress", []):
                     if time.time() >= float(slot.get("due", 0.0)):
@@ -4535,8 +4013,6 @@ class Watcher:
                     else:
                         keep.append(slot)
                 st["modes_in_progress"] = keep
-
-                # B) Während MB zusätzliche Jackpots (rollend)
                 if time.time() < float(st.get("multiball_until", 0.0)):
                     lo, hi = corp["jackpot_extra_per_tick"]
                     n_extra = random.randint(lo, hi)
@@ -4565,18 +4041,8 @@ class Watcher:
             "event_counts": ev,
             "score": int(score),
         }
-
-    # --- REPLACE: Korrelation-Parameter je Difficulty (Pro = “spielerisch schlau”) ---
     def _cpu_cor_params_for(self, difficulty: str) -> dict:
-        """
-        Skill-/Korrelationstuning:
-          - p_mode_complete: Chance, dass ein gestarteter Mode später abgeschlossen wird.
-          - mode_delay_s: Zeitfenster bis Mode-Completion.
-          - mb_window_s: Dauerfenster, in dem Multiball-Bonus/Jackpots häufiger fallen.
-          - jackpot_extra_per_tick: zusätzliche Jackpots pro Tick während MB (0..2).
-          - p_combo_after_ramp_loop: nach Ramp/Loop eine Combo hinterher.
-          - balls_interval_s: Zeit bis zum nächsten 'Balls Played' Tick (kosmetisch für Session-Deltas).
-        """
+     
         d = (difficulty or "mittel").lower()
         if d == "leicht":
             return {
@@ -4605,7 +4071,6 @@ class Watcher:
                 "p_combo_after_ramp_loop": 0.55,
                 "balls_interval_s": (16, 28),
             }
-        # mittel
         return {
             "p_mode_complete": (0.45, 0.65),
             "mode_delay_s": (12, 30),
@@ -4616,28 +4081,17 @@ class Watcher:
         }
 
     def _cpu_state_init(self, sim: dict, now: float, diff: str):
-        """
-        Initialisiert den Korrelations-Zustand einmalig im sim['state'].
-        """
+     
         st = sim.setdefault("state", {})
         st.setdefault("modes_in_progress", [])      # Liste von {'due': ts}
         st.setdefault("multiball_until", 0.0)       # ts bis Multiball-Bonus gilt
         st.setdefault("balls_next_ts", now + random.uniform(*self._cpu_cor_params_for(diff)["balls_interval_s"]))
 
     def _cpu_generate_correlated_events(self, sim: dict, now: float, diff: str) -> dict:
-        """
-        Erzeugt zusätzliche Event-Keys aus Korrelationen.
-        Rückgabe:
-          {
-            "event_keys": [ "mode_completed", "jackpot", ... ],
-            "inc_labels": { "Balls Played": +1, ... }
-          }
-        """
+       
         out = {"event_keys": [], "inc_labels": {}}
         st = sim.get("state") or {}
         params = self._cpu_cor_params_for(diff)
-
-        # A) Fällige Mode-Completions
         modes = st.get("modes_in_progress", [])
         if modes:
             keep = []
@@ -4647,16 +4101,12 @@ class Watcher:
                 else:
                     keep.append(slot)
             st["modes_in_progress"] = keep
-
-        # B) Balls Played zeitbasiert
         try:
             if now >= float(st.get("balls_next_ts", 0.0)):
                 out["inc_labels"]["Balls Played"] = out["inc_labels"].get("Balls Played", 0) + 1
                 st["balls_next_ts"] = now + random.uniform(*params["balls_interval_s"])
         except Exception:
             pass
-
-        # C) Während aktivem Multiball hin und wieder Extra-Jackpots
         try:
             mb_until = float(st.get("multiball_until", 0.0))
             if now < mb_until:
@@ -4668,19 +4118,8 @@ class Watcher:
             pass
 
         return out
-  
-        
-    # --- REPLACE: Live-Tick – nutzt Korrelationen + “pro” spielt wie ein Mensch (stackt, comboed, finished modes) ---
     def _cpu_sim_tick(self, dt: float):
-        """
-        KI-CPU Tick (realistisch):
-          - Läuft NUR im Modus 'live'
-          - Nur wenn Spiel aktiv UND Bootstrap abgeschlossen
-          - Ereignis-Budget: Events/Minute (sanft)
-          - Korrelationen: MB-Fenster, Mode-Start->Completion, Ramp/Loop -> Combo
-          - Pro: höhere Abschlusswahrscheinlichkeit, längere MB-Fenster, mehr Jackpot-Ketten
-        """
-        # Nur im Live-Modus
+    
         mode = str((self.cfg.OVERLAY or {}).get("cpu_sim_mode", "postgame")).lower()
         if mode != "live":
             return
@@ -4689,7 +4128,6 @@ class Watcher:
             return
 
         try:
-            # Zeit/State
             sim["active_play_seconds"] = float(sim.get("active_play_seconds", 0.0)) + float(dt or 0.0)
             diff = str(sim.get("difficulty", "mittel")).lower()
 
@@ -4701,8 +4139,6 @@ class Watcher:
             if k_allow <= 0:
                 self.cpu = sim
                 return
-
-            # Modell + Gewichte
             use_ai = bool((self.cfg.OVERLAY or {}).get("cpu_sim_ai", True))
             model = self._cpu_ai_get_model() if use_ai else {"events": {}}
 
@@ -4711,8 +4147,6 @@ class Watcher:
             st = sim.get("state", {})
             corp = self._cpu_cor_params_for(diff)
             caps = self._cpu_label_caps_for(diff)
-
-            # Korrelierte Zusatz-Keys je Tick (zählen NICHT aufs Budget; simulieren “free” Ketten)
             try:
                 extra = self._cpu_generate_correlated_events(sim, now, diff)
             except Exception:
@@ -4721,35 +4155,23 @@ class Watcher:
             sd = sim.setdefault("session_deltas", {})
             ev = sim.setdefault("event_counts", {})
             cur_score = int(sim.get("score", 0) or 0)
-
-            # 1) Zusätzliche Inkrement-Labels (z. B. Balls Played)
             for lab, inc in (extra.get("inc_labels") or {}).items():
                 if inc and (caps.get(lab, 1_000_000) > int(sd.get(lab, 0))):
                     sd[lab] = int(sd.get(lab, 0)) + int(inc)
-
-            # 2) Budgetierte Events auswählen und ausführen
             issued = 0
             keys_main = self._cpu_ai_pick_event_keys(k_allow, model) or []
             for key in keys_main:
-                # Cap prüfen
                 label = self._cpu_label_for_event(key)
                 cap = caps.get(label)
                 if cap is not None and int(sd.get(label, 0)) >= int(cap):
                     continue
-
-                # zählen
                 sd[label] = int(sd.get(label, 0)) + 1
                 ev[key] = int(ev.get(key, 0)) + 1
                 cur_score += int(max(0, self._cpu_score_for_event(key, params, model)))
                 issued += 1
-
-                # State-Updates + korrelierte Folge-Events
-                # a) Multiball gestartet -> Fenster setzen
                 if key == "multiball":
                     lo, hi = corp["mb_window_s"]
                     st["multiball_until"] = time.time() + random.uniform(lo, hi)
-
-                # b) Ramp/Loop/Orbit -> ggf. Combo “kostenlos” hinterher
                 if key in ("ramps", "loops", "orbit"):
                     if random.random() < float(corp["p_combo_after_ramp_loop"]):
                         lab_c = self._cpu_label_for_event("combo")
@@ -4757,8 +4179,6 @@ class Watcher:
                             sd[lab_c] = int(sd.get(lab_c, 0)) + 1
                             ev["combo"] = int(ev.get("combo", 0)) + 1
                             cur_score += int(max(0, self._cpu_score_for_event("combo", params, model)))
-
-                # c) Mode Start -> probabilistisch Completion nach Delay einplanen
                 if key == "mode_starts":
                     plo, phi = corp["p_mode_complete"]
                     if random.random() < random.uniform(plo, phi):
@@ -4767,19 +4187,13 @@ class Watcher:
 
                 if issued >= k_allow:
                     break
-
-            # 3) Korrelierte Events des Ticks (kostenlos) ausführen
             for kx in (extra.get("event_keys") or []):
                 labx = self._cpu_label_for_event(kx)
                 if caps.get(labx, 1_000_000) > int(sd.get(labx, 0)):
                     sd[labx] = int(sd.get(labx, 0)) + 1
                     ev[kx] = int(ev.get(kx, 0)) + 1
                     cur_score += int(max(0, self._cpu_score_for_event(kx, params, model)))
-
-            # 4) Budget abbauen
             sim["ev_budget"] = max(0.0, float(sim.get("ev_budget", 0.0)) - issued)
-
-            # 5) kleiner Jitter
             jitter = max(0, random.randint(0, int(0.04 * max(1, params.get("score_min", 50_000)))))
             cur_score += jitter
 
@@ -4790,9 +4204,7 @@ class Watcher:
  
 
     def _cpu_sim_session_reset(self):
-        """
-        Setzt CPU-Sim Zähler für eine neue Session zurück (Score/Deltas/Playtime).
-        """
+       
         self.cpu = (self.cpu or {})
         self.cpu["active_play_seconds"] = 0.0
         self.cpu["session_deltas"] = {}
@@ -4800,24 +4212,16 @@ class Watcher:
         self.cpu["score"] = 0
 
     def _cpu_sim_init(self):
-        """
-        Initialize CPU simulation state from cfg.OVERLAY.
-        - Sets active flag, difficulty (stored in German), params, and resets small runtime fields.
-        - Does NOT start ticking by itself; live tick runs only when game_active and snapshot bootstrap done.
-        """
+        
         try:
             self.cpu = (self.cpu or {})
             ov = getattr(self.cfg, "OVERLAY", {}) or {}
-            # Active flag
             self.cpu["active"] = bool(ov.get("cpu_sim_active", True))
-            # Difficulty: accept EN synonyms but store as de ("leicht","mittel","schwer","pro")
             raw = str(ov.get("cpu_sim_difficulty", self.cpu.get("difficulty", "mittel"))).lower()
             map_en = {"easy": "leicht", "medium": "mittel", "difficult": "schwer", "hard": "schwer", "pro": "pro"}
             diff = map_en.get(raw, raw if raw in ("leicht", "mittel", "schwer", "pro") else "mittel")
             self.cpu["difficulty"] = diff
-            # Params for live tick
             self.cpu["params"] = self._cpu_params_for(diff)
-            # Budgets/state
             self.cpu.setdefault("ev_budget", 0.0)
             self.cpu.setdefault("score", 0)
             self.cpu.setdefault("active_play_seconds", 0.0)
@@ -4825,23 +4229,16 @@ class Watcher:
             self.cpu.setdefault("event_counts", {})
             self.cpu.setdefault("state", {})
         except Exception:
-            # keep it silent; callers wrap in try/except already
             pass
 
  
     def set_cpu_sim_active(self, active: bool):
-        """
-        Ein-/Ausschalten der CPU-Simulation zur Laufzeit.
-        Zustand wird dauerhaft in cfg.OVERLAY gespeichert.
-        """
+       
         self.cpu = (self.cpu or {})
         self.cpu["active"] = bool(active)
-
-        # Direkt in der Config persistieren
         try:
             ov = getattr(self.cfg, "OVERLAY", {}) or {}
             ov["cpu_sim_active"] = bool(active)
-            # Schwierigkeitsgrad sicherstellen, falls noch nicht vorhanden (deutsch)
             cur = str((self.cpu.get("difficulty") or ov.get("cpu_sim_difficulty") or "mittel")).lower()
             map_en = {"easy": "leicht", "medium": "mittel", "difficult": "schwer", "hard": "schwer", "pro": "pro"}
             cur = map_en.get(cur, cur if cur in ("leicht", "mittel", "schwer", "pro") else "mittel")
@@ -4850,8 +4247,6 @@ class Watcher:
             self.cfg.save()
         except Exception:
             pass
-
-        # Bei Aktivierung sauber initialisieren (und aktiv lassen)
         if active:
             try:
                 diff = str(self.cfg.OVERLAY.get("cpu_sim_difficulty", self.cpu.get("difficulty", "mittel"))).lower()
@@ -4863,11 +4258,7 @@ class Watcher:
 
 
     def set_cpu_difficulty(self, difficulty: str):
-        """
-        Umschalten der CPU-Schwierigkeit zur Laufzeit.
-        Persistiert in cfg.OVERLAY und setzt next_tick neu.
-        Akzeptiert deutsche und englische Eingaben, speichert deutsch.
-        """
+    
         raw = str(difficulty or "mittel").lower()
         map_en = {"easy": "leicht", "medium": "mittel", "difficult": "schwer", "hard": "schwer", "pro": "pro"}
         d = map_en.get(raw, raw)
@@ -4915,8 +4306,6 @@ class Watcher:
             data = load_json(rpath, {}) or {}
             if isinstance(data.get("rules"), list):
                 rules.extend(data["rules"])
-
-        # Custom: Platzhalter-Datei explizit überspringen
         cdir = p_custom(self.cfg)
         placeholder = "put_your_custom_achievements_here_click_me.json"
         if os.path.isdir(cdir):
@@ -4943,13 +4332,7 @@ class Watcher:
         return out
 
     def _evaluate_player_session_achievements(self, pid: int, rom: str) -> list:
-        """
-        Evaluates player-specific session achievements for the given ROM.
-        Unterstützt NUR:
-          - nvram_delta   (per-player Session-Deltas)
-          - session_time  (Spielzeit pro Spieler)
-        KEIN nvram_overall im Spieler-Kontext.
-        """
+   
         if pid not in self.players:
             return []
         player = self.players[pid]
@@ -4976,12 +4359,8 @@ class Watcher:
                     min_s = int(cond.get("min_seconds", cond.get("min", 0)))
                     if play_sec >= min_s:
                         awarded.append(title)
-
-                # nvram_overall wird im Spieler-Kontext bewusst ignoriert
             except Exception:
                 continue
-
-        # Duplikate entfernen (pro Zielfeld nur einmal)
         out, seen_field = [], set()
         for title in awarded:
             parts = title.split("–")
@@ -4996,10 +4375,7 @@ class Watcher:
         return out
 
     def export_overlay_snapshot(self, end_audits: dict, duration_sec: int, on_demand: bool = False) -> str:
-        """
-        Export activePlayers JSON files for each player (atomic write).
-        UPDATED: remove achievements from payloads entirely (GUI/Overlay should have no achievements of any kind).
-        """
+       
         self._latest_end_audits_cache = dict(end_audits)
         try:
             self._ball_finalize_current(end_audits, force=True)
@@ -5008,8 +4384,6 @@ class Watcher:
 
         active_dir = os.path.join(p_highlights(self.cfg), "activePlayers")
         ensure_dir(active_dir)
-
-        # Include provisional events of the current segment (overlay-only)
         provisional_events: dict = {}
         if self.include_current_segment_in_overlay and self.snapshot_mode and self.current_segment_provisional_diff:
             for label, delta in (self.current_segment_provisional_diff or {}).items():
@@ -5018,8 +4392,6 @@ class Watcher:
                     if any(w in ll for w in words):
                         provisional_events[ev_key] = provisional_events.get(ev_key, 0) + int(delta or 0)
                         break
-
-        # Players 1..4 (no achievements in payload)
         for pid in range(1, 4 + 1):
             rec = self.players.get(pid)
             if not rec:
@@ -5033,12 +4405,8 @@ class Watcher:
                 continue
 
             play_sec = int(rec.get("active_play_seconds", 0.0))
-
-            # Events from per-player deltas
             deltas_for_player = rec.get("session_deltas", {}) or {}
             merged_events = self._build_events_from_deltas(deltas_for_player)
-
-            # Provisional events for active player
             if pid == self.snap_player and provisional_events:
                 for k, v in provisional_events.items():
                     merged_events[k] = merged_events.get(k, 0) + int(v or 0)
@@ -5069,8 +4437,6 @@ class Watcher:
                 "highlights": highlights,
             }
             save_json(os.path.join(active_dir, f"{self.current_rom}_P{pid}.json"), payload)
-
-        # CPU (Player 5) – only if active; no achievements in payload
         try:
             sim = getattr(self, "cpu", {}) or {}
             if sim.get("active"):
@@ -5103,16 +4469,8 @@ class Watcher:
         return active_dir
 
     def _evaluate_achievements(self, rom: str, start_audits: dict, end_audits: dict, duration_sec: int) -> tuple[list[str], list[str], list[dict]]:
-        """
-        Evaluate global achievements (scope='global') for the given ROM.
-        Supported rule types: nvram_overall, nvram_delta, session_time.
-        Returns:
-          (awarded_titles, all_global_titles, awarded_meta)
-          awarded_meta contains dict items: {'title': str, 'origin': str}
-        """
+      
         global_rules = self._collect_global_rules_for_rom(rom)
-
-        # Prepare case-insensitive deltas Start -> End
         deltas_ci = {}
         for k, _ve in (end_audits or {}).items():
             try:
@@ -5178,19 +4536,9 @@ class Watcher:
         return awarded, all_titles, awarded_meta
         
     def _collect_global_rules_for_rom(self, rom: str) -> list[dict]:
-        """
-        Collect global rules only (scope='global') for the given ROM.
-        Sources:
-          - global_achievements.json (all global rules)
-          - rom_specific_achievements/<rom>.ach.json (should be empty for globals, but still tolerated)
-          - custom_achievements/*.json (global rules and examples for this ROM)
-        Each returned rule is annotated with '_origin' in {'global_achievements','rom_specific','custom'}.
-        Titles are deduplicated.
-        """
+    
         rules_out = []
         seen_titles = set()
-
-        # 1) global_achievements.json
         gp = f_global_ach(self.cfg)
         if os.path.exists(gp):
             data = load_json(gp, {}) or {}
@@ -5204,8 +4552,6 @@ class Watcher:
                         r2 = dict(r)
                         r2["_origin"] = "global_achievements"
                         rules_out.append(r2)
-
-        # 2) ROM-specific (should no longer contain global rules, but we accept them if present)
         rpath = os.path.join(p_rom_spec(self.cfg), f"{rom}.ach.json")
         if os.path.exists(rpath):
             data = load_json(rpath, {}) or {}
@@ -5219,8 +4565,6 @@ class Watcher:
                         r2 = dict(r)
                         r2["_origin"] = "rom_specific"
                         rules_out.append(r2)
-
-        # 3) custom_achievements (direct rules + examples for this ROM)
         cdir = p_custom(self.cfg)
         placeholder = "put_your_custom_achievements_here_click_me.json"
         if os.path.isdir(cdir):
@@ -5231,8 +4575,6 @@ class Watcher:
                     continue
                 fpath = os.path.join(cdir, fn)
                 data = load_json(fpath, {}) or {}
-
-                # a) direct rules
                 for r in (data.get("rules") or []):
                     if not isinstance(r, dict):
                         continue
@@ -5243,8 +4585,6 @@ class Watcher:
                             r2 = dict(r)
                             r2["_origin"] = "custom"
                             rules_out.append(r2)
-
-                # b) examples for this ROM
                 for ex in (data.get("examples") or []):
                     if not isinstance(ex, dict) or ex.get("rom") != rom:
                         continue
@@ -5263,25 +4603,19 @@ class Watcher:
         
  
     def _is_rule_global(self, rule: dict, origin: str) -> bool:
-        """
-        Strikte Regel: Nur Regeln mit scope='global' werden als 'global' gewertet – unabhängig von Quelle.
-        """
+        
         scope = str(rule.get("scope") or "").strip().lower()
         return scope == "global"
  
 
     def _ensure_global_ach(self):
-        """
-        Legt global_achievements.json an, falls nicht vorhanden ODER wenn sie zu wenige Regeln (< 40) enthält.
-        Befüllt mit ~50 abwechslungsreichen Global-Regeln (siehe _generate_default_global_rules).
-        """
+        
         path = f_global_ach(self.cfg)
         if os.path.exists(path):
             try:
                 data = load_json(path, {}) or {}
                 cur = data.get("rules") or []
                 if isinstance(cur, list) and len(cur) >= 40:
-                    # ausreichend bestückt – nichts tun
                     return
             except Exception:
                 pass
@@ -5293,11 +4627,7 @@ class Watcher:
             log(self.cfg, f"[GLOBAL_ACH] generation failed: {e}", "WARN")
 
     def _ensure_custom_placeholder(self):
-        """
-        Erzeugt die Beispiel-/Platzhalterdatei mit 'scope' pro Achievement.
-        - Session-Achievements: scope='session'
-        - Globales Beispiel: scope='global' (session_time 15 Minuten)
-        """
+      
         path = os.path.join(p_custom(self.cfg), "PUT_YOUR_CUSTOM_ACHIEVEMENTS_HERE_CLICK_ME.json")
         if not os.path.exists(path):
             payload = {
@@ -5380,17 +4710,8 @@ class Watcher:
                     log(self.cfg, f"[HIGHLIGHTS] Could not remove {pth}: {e}", "WARN")
         except Exception as e:
             log(self.cfg, f"[HIGHLIGHTS] History enforcement failed: {e}", "WARN")
-
-    # In class Watcher: PATCH _export_summary to also write a per-session *.session.json
     def _export_summary(self, end_audits: dict, duration_sec: int):
-        """
-        Write session summary JSON with a proper UTC timestamp.
-        Enthält jetzt zusätzlich:
-          - end_audits: kompletter globaler NVRAM-Snapshot am Ende
-          - global_deltas: globale Deltas aus Start-/End-Audits
-        NEU: legt zusätzlich eine datierte *.session.json im Highlights-Ordner ab,
-             damit der System-Stats-Tab (Heatmaps) Daten laden kann.
-        """
+      
         from datetime import timezone
         summary_path = os.path.join(p_highlights(self.cfg), self.SUMMARY_FILENAME)
         try:
@@ -5401,8 +4722,6 @@ class Watcher:
                     best_ball = max(balls, key=lambda b: (int(b.get("score", 0)), int(b.get("duration", 0))))
             except Exception:
                 best_ball = None
-
-            # globale Deltas sicher ermitteln
             try:
                 global_deltas = self._compute_session_deltas(self.start_audits, end_audits)
             except Exception:
@@ -5439,11 +4758,7 @@ class Watcher:
                 "global_deltas": global_deltas,     # globale Deltas Start->Ende
                 "end_timestamp": datetime.now(timezone.utc).isoformat(),
             }
-
-            # 1) Aktuelle Summary (letzte Session)
             save_json(summary_path, payload)
-
-            # 2) NEU: Persistente Session-Datei für System-Stats/Heatmaps
             try:
                 ts_tag = datetime.now().strftime("%Y%m%d_%H%M%S")
                 per_session_path = os.path.join(p_highlights(self.cfg), f"{ts_tag}.session.json")
@@ -5453,32 +4768,22 @@ class Watcher:
 
         except Exception as e:
             log(self.cfg, f"[SUMMARY] export failed: {e}", "WARN")
-
-    # --- Global Self-learning (EMA, post-session, ROM-agnostisch) --------------------------
     def _ai_global_dir(self) -> str:
-        """
-        Globales AI-Verzeichnis: BASE\\AI
-        """
+       
         d = p_ai(self.cfg)
         ensure_dir(d)
         return d
 
     def _ai_global_model_path(self) -> str:
-        """
-        Pfad zum globalen Lernmodell (ROM-unabhängig).
-        """
+        
         return os.path.join(self._ai_global_dir(), "global.learning.json")
 
     def _ai_global_coach_path(self) -> str:
-        """
-        Pfad zu globalen Coach-Tipps (ROM-unabhängig).
-        """
+        
         return os.path.join(self._ai_global_dir(), "global.coach.json")
 
     def _ai_read_latest_summary(self) -> dict:
-        """
-        Liest die zuletzt exportierte Session-Summary (session_latest.summary.json).
-        """
+       
         try:
             path = os.path.join(p_highlights(self.cfg), self.SUMMARY_FILENAME)
             if os.path.isfile(path):
@@ -5488,10 +4793,7 @@ class Watcher:
         return {}
 
     def _ai_aggregate_events_from_summary(self, s: dict) -> dict:
-        """
-        Summiert Events über alle Spieler aus der Summary.
-        Rückgabe: {"jackpot":int, "multiball":int, ...}
-        """
+        
         totals = {}
         for p in (s.get("players") or []):
             ev = p.get("events") or {}
@@ -5504,7 +4806,7 @@ class Watcher:
 
     def _ai_load_global_model(self) -> dict:
         """
-        Lädt das globale Lernmodell oder erzeugt Defaults.
+      
         Struktur:
           {
             "updated": "...",
@@ -5537,13 +4839,8 @@ class Watcher:
         except Exception as e:
             log(self.cfg, f"[AI] save global model failed: {e}", "WARN")
 
-# 1) In class Watcher: ersetze _ai_write_global_coach_tips durch diese Version (ohne 'tip'):
-
     def _ai_write_global_coach_tips(self, model: dict, top_k: int = 5):
-        """
-        Generate coach top events WITHOUT the template 'tip' text.
-        Writes BASE\\AI\\global.coach.json. All text in English (data fields only).
-        """
+       
         events = model.get("events", {}) or {}
         meta = model.get("meta", {}) or {}
 
@@ -5569,7 +4866,6 @@ class Watcher:
                 "value_per_event": round(w, 2),
                 "observations": n,
                 "what_if": scenarios
-                # 'tip' entfernt
             })
 
         payload = {
@@ -5581,35 +4877,20 @@ class Watcher:
         log(self.cfg, f"[AI] global coach tips written: {self._ai_global_coach_path()} without 'tip'")
 
     def _ai_update_global_learning(self, end_audits: dict, duration_sec: int):
-        """
-        Globales Post-Session Learning (ROM-unabhängig, EMA):
-          - Zielvariable: finaler Score der Session (aus globalen End-Audits)
-          - Features: aggregierte Event-Zähler über alle Spieler
-          - Update-Regel: EMA auf 'Wert pro Event' (score / max(1, count))
-          - Zusätzlich: ema_score/ema_duration, sessions++
-          - Erzeugt globale Coach-Tipps (Top-Events + einfache What-if-Schätzung)
-        Läuft ausschließlich nach der Session.
-        """
-        # 1) Daten laden
+    
         summary = self._ai_read_latest_summary()
         if not summary:
             return
         events = self._ai_aggregate_events_from_summary(summary)
-
-        # Ziel: finaler Score (global aus Audits)
         try:
             total_score = int(self._find_score_from_audits(end_audits) or 0)
         except Exception:
             total_score = 0
-
-        # 2) Modell laden
         model = self._ai_load_global_model()
         meta = model.setdefault("meta", {})
         ev_store = model.setdefault("events", {})
         alpha = float(meta.get("alpha", 0.25))
         alpha = 0.25 if alpha <= 0 or alpha >= 1 else alpha
-
-        # 3) EMA-Updates pro beobachtetem Event
         for ev_key, c in (events or {}).items():
             try:
                 c = int(c or 0)
@@ -5623,8 +4904,6 @@ class Watcher:
             w_new = (1.0 - alpha) * w_old + alpha * float(sample)
             slot["w"] = float(w_new)
             slot["n"] = int(slot.get("n", 0)) + 1
-
-        # 4) EMA für Score & Duration + Sessions-Inkrement
         try:
             ema_score = float(meta.get("ema_score", 0.0))
             ema_dur = float(meta.get("ema_duration", 0.0))
@@ -5633,8 +4912,6 @@ class Watcher:
         except Exception:
             pass
         meta["sessions"] = int(meta.get("sessions", 0)) + 1
-
-        # 5) Speichern + Coach-Tipps generieren
         self._ai_save_global_model(model)
         try:
             self._ai_write_global_coach_tips(model)
@@ -5642,13 +4919,9 @@ class Watcher:
             log(self.cfg, f"[AI] global coach export failed: {e}", "WARN")
 
     def _ai_global_bootstrap(self):
-        """
-        Legt beim Start den Ordner BASE\\AI an und erzeugt Default-Dateien,
-        falls diese noch nicht existieren.
-        """
+       
         try:
             root = self._ai_global_dir()  # sorgt für ensure_dir
-            # Modell anlegen, wenn nicht vorhanden
             model_path = self._ai_global_model_path()
             if not os.path.isfile(model_path):
                 base_model = {
@@ -5658,8 +4931,6 @@ class Watcher:
                 }
                 save_json(model_path, base_model)
                 log(self.cfg, f"[AI] created model file: {model_path}")
-
-            # Coach-Datei anlegen, wenn nicht vorhanden
             coach_path = self._ai_global_coach_path()
             if not os.path.isfile(coach_path):
                 base_coach = {
@@ -5671,9 +4942,6 @@ class Watcher:
                 log(self.cfg, f"[AI] created coach file: {coach_path}")
         except Exception as e:
             log(self.cfg, f"[AI] bootstrap failed: {e}", "WARN")
-
-
-    # --- AI Profiling (Skill Analysis & Trends, post-session; ENGLISH) ---------------------
     def _ai_history_dir(self) -> str:
         d = os.path.join(self._ai_global_dir(), "history")
         ensure_dir(d)
@@ -5700,12 +4968,7 @@ class Watcher:
             log(self.cfg, f"[AI-PROFILE] bootstrap failed: {e}", "WARN")
 
     def _ach_state_load(self) -> dict:
-        """
-        Load the persistent achievements state from disk.
-        Structure:
-          { "global": { "<rom>": [ { "title": str, "origin": str, "ts": iso }, ... ] },
-            "session": { "<rom>": [ { "title": str, "ts": iso }, ... ] } }
-        """
+       
         try:
             return load_json(f_achievements_state(self.cfg), {}) or {}
         except Exception:
@@ -5721,11 +4984,7 @@ class Watcher:
             pass
 
     def _ach_record_unlocks(self, kind: str, rom: str, titles: list):
-        """
-        Record one-time unlocks (no duplicates per ROM and kind).
-        kind: 'global' or 'session'
-        titles: list of strings OR dicts like {'title': '...', 'origin': 'global_achievements'}
-        """
+       
         if not rom or not titles:
             return
         now_iso = datetime.now(timezone.utc).isoformat()
@@ -5752,14 +5011,11 @@ class Watcher:
         self._ach_state_save(state)
     
     def _ai_build_features_from_summary(self, s: dict) -> dict:
-        # Build session features from summary in ENGLISH
         try:
             duration_sec = int(s.get("duration_sec", 0) or 0)
         except Exception:
             duration_sec = 0
         minutes = max(1e-6, duration_sec / 60.0)
-
-        # USE REAL SESSION END TIMESTAMP (fallback to now UTC)
         ts_iso = s.get("end_timestamp") or datetime.now(timezone.utc).isoformat()
 
         events = self._ai_aggregate_events_from_summary(s) if isinstance(s, dict) else {}
@@ -5864,28 +5120,18 @@ class Watcher:
         return trends
 
     def _ai_update_profile(self, end_audits: dict, duration_sec: int):
-        """
-        Post-session profiling:
-          - read session_latest.summary.json
-          - compute session features + style (EN)
-          - write history\\TS.features.json
-          - update BASE\\AI\\profile.json (style + trends over history)
-        """
+     
         s = self._ai_read_latest_summary()
         if not s:
             return
 
         feats = self._ai_build_features_from_summary(s)
-
-        # history entry
         try:
             ts = time.strftime("%Y%m%d_%H%M%S")
             hpath = os.path.join(self._ai_history_dir(), f"{ts}.features.json")
             save_json(hpath, feats)
         except Exception as e:
             log(self.cfg, f"[AI-PROFILE] write history failed: {e}", "WARN")
-
-        # load history (max 50)
         hist_files = []
         try:
             hist_files = [os.path.join(self._ai_history_dir(), fn)
@@ -5920,12 +5166,7 @@ class Watcher:
 
 
     def on_session_start(self, table_or_rom: str, is_rom: bool = False):
-        """
-        Session-Start:
-        - Setzt current_rom/current_table, initialisiert Snapshot/Bootstrap-Basiswerte,
-          lädt Whitelist, schreibt watcher_hook.ini nur bei Änderungen und bereitet Spielerstrukturen vor.
-        """
-        # activePlayers leeren
+     
         try:
             active_dir = os.path.join(p_highlights(self.cfg), "activePlayers")
             if os.path.isdir(active_dir):
@@ -5937,42 +5178,29 @@ class Watcher:
                 ensure_dir(active_dir)
         except Exception as e:
             log(self.cfg, f"[CLEANUP] activePlayers cleanup failed: {e}", "WARN")
-
-        # ROM/Table setzen und INI einmalig sicherstellen
         if is_rom:
             self.current_rom = table_or_rom
             self.current_table = f"(ROM only: {self.current_rom})"
             self._table_load_ts = time.time()
             try:
-                # INI nur schreiben, wenn sich etwas geändert hat (kein Spam)
                 self._ensure_hook_ini_once()
             except Exception as e:
                 log(self.cfg, f"[HOOK] ini-on-start failed: {e}", "WARN")
         else:
             self.current_table = table_or_rom
-
-        # Grundzustand
         self.start_time = time.time()
         self.game_active = True
         self.players.clear()
-
-        # NEU: CPU-Sim initialisieren/übernehmen (aktiv-Flag bleibt erhalten)
         try:
             self._cpu_sim_init()
         except Exception as e:
             log(self.cfg, f"[CPU] init failed: {e}", "WARN")
-
-        # CPU-Sim pro Session zurücksetzen (nur wenn aktiv)
         try:
             if (self.cpu or {}).get("active"):
                 self._cpu_sim_session_reset()
         except Exception as e:
             log(self.cfg, f"[CPU] session reset failed: {e}", "WARN")
-
-        # Start-Audits laden und ROM-spezifische Achievements sicherstellen
         self.start_audits, _, _ = self.read_nvram_audits_with_autofix(self.current_rom)
-
-        # Start lightweight sampler if no base map exists (auto-mapping)
         try:
             if not self._base_map_exists(self.current_rom):
                 self._nvram_sampler_start(self.current_rom)
@@ -5983,23 +5211,16 @@ class Watcher:
             self._ensure_rom_specific(self.current_rom, self.start_audits)
         except Exception as e:
             log(self.cfg, f"[ROM_SPEC] generation failed: {e}", "WARN")
-
-        # Spieler-Snapshots vorbereiten
         self._init_player_snaps(self.start_audits)
         self._last_audits_global = dict(self.start_audits)
-
-        # Bootstrap-Basiswerte JEDE Session zurücksetzen
         try:
             self._snap_bootstrap_done = False
             self._snap_bootstrap_just_done = False
             self._snap_bootstrap_games = int(self._nv_get_int_ci(self.start_audits, "Games Started", 0))
             self._snap_bootstrap_balls = int(self._get_balls_played(self.start_audits) or 0)
-            # Wichtig: CB-Basis auf 0 setzen, damit der DLL-Wert (cb >= 1) sofort triggern kann
             self._snap_bootstrap_cb = 0
         except Exception:
             pass
-
-        # Snapshot-/Whitelist-Initialisierung
         if self.snapshot_mode:
             try:
                 self._ball_reset(self.start_audits)
@@ -6017,8 +5238,6 @@ class Watcher:
                 self.snapshot_mode = False
         else:
             self.bootstrap_phase = False
-
-        # Logging
         log(self.cfg, f"[SESSION] Start: table={self.current_table}, rom={self.current_rom}, bootstrap={self.bootstrap_phase}")
         if self.start_audits:
             log(self.cfg, f"[AUDITS] loaded: {len(self.start_audits)} keys")
@@ -6026,26 +5245,16 @@ class Watcher:
             log(self.cfg, f"[AUDITS] none for {self.current_rom}")
 
     def _ensure_singleplayer_min_playtime(self, nplayers: int, duration_sec: int) -> None:
-        """
-        Ensures for single-player sessions that P1 active_play_seconds is at least the total session duration.
-        This guards against edge cases where fallback allocation yields 0 for P1.
-        """
+       
         try:
             if int(nplayers) == 1:
                 cur = int(self.players.get(1, {}).get("active_play_seconds") or 0)
                 if cur < int(duration_sec):
                     self.players.setdefault(1, {})["active_play_seconds"] = int(duration_sec)
         except Exception:
-            # Silent guard: never break session end flow
             pass
-
-
-    # --- In class Watcher: unmittelbar VOR on_session_end() einfügen ---
     def _normalize_single_player_playtime(self, nplayers: int, end_audits: dict):
-        """
-        Singleplayer-Korrektur: Setzt P2..P4 Playtime auf 0, wenn keine Evidenz
-        für Teilnahme vorhanden (Score==0 und keine Session-Deltas).
-        """
+   
         if nplayers > 1:
             return
         for pid in range(2, 5):
@@ -6075,14 +5284,11 @@ class Watcher:
         end_ts = time.time()
         duration_sec = int(end_ts - (self.start_time or end_ts))
         duration_str = str(timedelta(seconds=duration_sec))
-
-        # Pre-kill snapshot override for challenges (prefer this to disk read)
         ch = getattr(self, "challenge", {}) or {}
         pre = ch.get("prekill_end") if isinstance(ch.get("prekill_end", None), dict) else None
         if pre:
             end_audits = dict(pre)
         else:
-            # Read end audits (fallback to last known if necessary)
             try:
                 end_audits, _, _ = self.read_nvram_audits_with_autofix(self.current_rom)
                 if not end_audits:
@@ -6090,13 +5296,9 @@ class Watcher:
             except Exception as e:
                 log(self.cfg, f"[END] read end audits failed, using last known: {e}", "WARN")
                 end_audits = dict(self._last_audits_global)
-
-        # Determine players in game (for fallbacks and gating session achievements)
         players_detected = self._infer_players_in_game_from_audits(self.start_audits, end_audits)
         nplayers = max(1, min(4, int(players_detected or 1)))
         single_player_fast = (nplayers <= 1)
-
-        # Compute per-player deltas (segment-based if available; otherwise fallbacks)
         seg_deltas = {}
         try:
             if getattr(self, "_snap_bootstrap_done", False) and int(self.snap_segment_index or 0) > 0:
@@ -6117,8 +5319,6 @@ class Watcher:
             log(self.cfg, f"[SNAP] summary: players={nplayers}, segments={int(self.snap_segment_index or 0)}, bootstrap={bool(getattr(self, '_snap_bootstrap_done', False))}")
         except Exception:
             pass
-
-        # Merge computed deltas back into self.players
         if single_player_fast and (getattr(self, "_snap_bootstrap_done", False) is False or int(self.snap_segment_index or 0) <= 0):
             self.players.setdefault(1, {
                 "start_audits": self._player_field_filter(self.start_audits, 1) or {"P1 Score": 0},
@@ -6161,8 +5361,6 @@ class Watcher:
                     if cv > ex:
                         merged[k] = cv
                 self.players[pid]["session_deltas"] = merged
-
-        # Playtime fallback
         try:
             total_pt = 0.0
             for pid in range(1, nplayers + 1):
@@ -6189,11 +5387,7 @@ class Watcher:
                 self._normalize_single_player_playtime(nplayers, end_audits)
         except Exception as e:
             log(self.cfg, f"[SNAP] playtime fallback failed: {e}", "WARN")
-
-        # NEW: ensure P1 playtime >= session duration in single-player sessions
         self._ensure_singleplayer_min_playtime(nplayers, duration_sec)
-
-        # Evaluate/persist achievements
         awarded_from_ga = []
         session_achs_p1 = []
         try:
@@ -6201,8 +5395,6 @@ class Watcher:
         except Exception as e:
             log(self.cfg, f"[ACH] eval failed: {e}", "WARN")
             awarded, awarded_meta = [], []
-
-        # Global: only origin='global_achievements'
         try:
             awarded_from_ga = [m for m in (awarded_meta or []) if (m.get("origin") == "global_achievements")]
             try:
@@ -6216,8 +5408,6 @@ class Watcher:
                 self._ach_record_unlocks("global", self.current_rom, awarded_from_ga)
         except Exception as e:
             log(self.cfg, f"[ACH] persist global failed: {e}", "WARN")
-
-        # Session achievements: only 1-player (persist internally, but do not print in snapshot)
         try:
             if nplayers == 1:
                 session_achs_p1 = self._evaluate_player_session_achievements(1, self.current_rom) or []
@@ -6230,7 +5420,6 @@ class Watcher:
                     pass
                 if session_achs_p1:
                     self._ach_record_unlocks("session", self.current_rom, list(session_achs_p1))
-                    # Optional toast display kept; remove if you also want no popups
                     try:
                         for t in session_achs_p1:
                             self.bridge.ach_toast_show.emit(str(t), self.current_rom or "", 5)
@@ -6240,8 +5429,6 @@ class Watcher:
                 log(self.cfg, "[ACH] session achievements skipped (multi-player session)")
         except Exception as e:
             log(self.cfg, f"[ACH] persist session failed: {e}", "WARN")
-
-        # TXT export (achievements intentionally not shown)
         txt_filename = (
             f"{sanitize_filename(self.current_rom)}__"
             f"{sanitize_filename(self.current_table)}__"
@@ -6265,7 +5452,6 @@ class Watcher:
             lines.append(f"Best Ball: #{best_ball.get('num', 1)} – {mm}m {ss}s")
 
         lines.append("=== Global Snapshot ===")
-        # Achievements intentionally omitted from Global snapshot
 
         NV_EXCLUDE_VALUE = 4_373_822
         SKIP_WEIRD_GE = 10_000_000
@@ -6294,7 +5480,6 @@ class Watcher:
             lines.append(f"=== Player {pid} Snapshot ===")
             psec = int(prec.get("active_play_seconds", 0.0))
             lines.append(f"Playtime: {str(timedelta(seconds=psec))}")
-            # Session achievements intentionally omitted in Player snapshots
 
             s_deltas = prec.get("session_deltas", {}) or {}
             lines.append("Session Deltas:")
@@ -6354,8 +5539,6 @@ class Watcher:
                 self._nvram_autogen_map(self.current_rom)
         except Exception as e:
             log(self.cfg, f"[AUTOMAP] failed: {e}", "WARN")
-
-        # Auto-show overlay unless a challenge requested to suppress it
         try:
             ch = getattr(self, "challenge", {}) or {}
             suppress = bool(ch.get("suppress_big_overlay_once", False))
@@ -6366,12 +5549,8 @@ class Watcher:
                 self.bridge.overlay_show.emit()
         except Exception as e:
             log(self.cfg, f"[OVERLAY] auto-show emit failed: {e}", "WARN")
-
-        # Challenge result banner + persist (only if challenge was active)
         try:
             ch = getattr(self, "challenge", {}) or {}
-
-            # Timed: injiziere den besten P1‑Score in end_audits, damit das gespeicherte Ergebnis sicher ist
             if str(ch.get("kind", "")).lower() == "timed":
                 try:
                     end_audits = self._inject_best_score_for_timed(end_audits)
@@ -6382,8 +5561,6 @@ class Watcher:
                 self._challenge_record_result(str(ch.get("kind")), end_audits, duration_sec)
         except Exception as e:
             log(self.cfg, f"[CHALLENGE] result finalize failed: {e}", "WARN")
-
-        # Reset session state
         self.current_table = None
         self.current_rom = None
         self.start_time = None
@@ -6476,7 +5653,6 @@ class Watcher:
                 if active_rom is None and rom:
                     self.on_session_start(rom, is_rom=True)
                     active_rom = rom
-                    # NEW: show mini info overlay if map is missing in BASE\NVRAM_Maps\maps
                     self._emit_mini_info_if_missing_map(rom, 5)
 
                 elif active_rom and rom and rom != active_rom:
@@ -6484,26 +5660,18 @@ class Watcher:
                     active_rom = None
                     self.on_session_start(rom, is_rom=True)
                     active_rom = rom
-                    # NEW: show mini info overlay if map is missing in BASE\NVRAM_Maps\maps
                     self._emit_mini_info_if_missing_map(rom, 5)
-
-                # Injector früh starten (liefert live.session.json)
                 try:
                     self._try_start_injectors_for_vpx()
                 except Exception:
                     pass
 
                 if active_rom:
-                    # 1) Audits
                     audits, _, _ = self.read_nvram_audits_with_autofix(self.current_rom)
-
-                    # Periodic sampler tick (collect nvram bytes for auto-mapping)
                     try:
                         self._nvram_sampler_tick()
                     except Exception:
                         pass
-
-                    # 2) Control-Signale (DLL bevorzugt)
                     try:
                         controls = self._read_control_signals(self.current_rom) or {}
                     except Exception:
@@ -6512,22 +5680,15 @@ class Watcher:
                     for k in ("current_player", "player_count", "current_ball", "Balls Played"):
                         if k in controls:
                             audits_ctl[k] = controls[k]
-
-                    # Fallback: wenn die DLL nur 'current_ball' liefert, aber kein 'Balls Played',
-                    # synthesize 'Balls Played' aus 'current_ball' (Ziel: One‑Ball sauber triggern)
                     if "Balls Played" not in audits_ctl and "current_ball" in audits_ctl:
                         try:
                             audits_ctl["Balls Played"] = int(audits_ctl["current_ball"])
                         except Exception:
                             pass
-
-                    # NEU: One‑Ball unabhängig von snapshot_mode prüfen (Drain via bp oder cb)
                     try:
                         self._oneball_check_and_schedule(audits_ctl)
                     except Exception as e:
                         log(self.cfg, f"[CHALLENGE] one-ball check in loop failed: {e}", "WARN")
-
-                    # optional: [CTRL]-Log …
                     try:
                         if bool(getattr(self.cfg, "LOG_CTRL", False)):
                             now_dbg = time.time()
@@ -6543,8 +5704,6 @@ class Watcher:
                                 self._dbg_ctl_ts = now_dbg
                     except Exception:
                         pass
-
-                    # 3) PRE-GAME-Info …
                     try:
                         if not getattr(self, "_snap_bootstrap_done", False):
                             pc = int(audits_ctl.get("player_count", 0) or 0)
@@ -6553,8 +5712,6 @@ class Watcher:
                                 log(self.cfg, f"[SNAP] pregame player_count detected: {pc}")
                     except Exception:
                         pass
-
-                    # 4) Live-Export alle 2s …
                     try:
                         now2 = time.time()
                         if self.current_rom and self.cfg.OVERLAY.get("live_updates", False) and (now2 - self._last_live_export_ts >= 2.0):
@@ -6563,20 +5720,13 @@ class Watcher:
                             self._last_live_export_ts = now2
                     except Exception as e:
                         log(self.cfg, f"[EXPORT] live export failed: {e}", "WARN")
-
-                    # 5) SNAP-Bootstrap …
                     if self.snapshot_mode:
-                        # (unverändert)
                         pass
-
-                    # 6) Spielerzahl erkennen …
                     try:
                         if self.snapshot_mode and self.snap_initialized and hasattr(self, "_snap_detect_players"):
                             self._snap_detect_players(audits_ctl)
                     except Exception:
                         pass
-
-                    # 7) Rotation …
                     if self.snapshot_mode and self.snap_initialized:
                         try:
                             seg_before = int(self.snap_segment_index or 0)
@@ -6600,8 +5750,6 @@ class Watcher:
                                 self._maybe_rotate_on_score_delta(audits)
                         except Exception as e:
                             log(self.cfg, f"[SNAP] rotate (cp/bp/score) failed: {e}", "WARN")
-
-                        # 7.4) Externer Detector …
                         try:
                             if self._pending_detector_switch is not None:
                                 target_pid = int(self._pending_detector_switch)
@@ -6625,8 +5773,6 @@ class Watcher:
                                 self._pending_detector_switch = None
                         except Exception as e:
                             log(self.cfg, f"[SNAP] detector-rotate failed: {e}", "WARN")
-
-                    # 8) Live-Overlay-Diff …
                     if self.snapshot_mode and self.snap_initialized and self.include_current_segment_in_overlay:
                         try:
                             self.current_segment_provisional_diff = self._snap_diff(self.snap_start_audits, audits)
@@ -6634,8 +5780,6 @@ class Watcher:
                             self.current_segment_provisional_diff = {}
                     else:
                         self.current_segment_provisional_diff = {}
-
-                    # 9) current_player Quelle …
                     try:
                         cp_val = int(audits_ctl.get("current_player", audits.get("current_player", 1)) or 1)
                     except Exception:
@@ -6644,16 +5788,12 @@ class Watcher:
                         self.current_player = int(self.snap_player or cp_val or 1)
                     else:
                         self.current_player = cp_val
-
-                    # 10) Spielzeit
                     try:
                         if self.current_player in self.players:
                             self.players[self.current_player]["active_play_seconds"] = \
                                 float(self.players[self.current_player].get("active_play_seconds", 0.0)) + dt
                     except Exception:
                         pass
-
-                    # 10.5) Live-Events attribuieren …
                     try:
                         changed = False
                         try:
@@ -6669,14 +5809,10 @@ class Watcher:
                                 log(self.cfg, f"[EXPORT] live immediate export failed: {e}", "WARN")
                     except Exception as e:
                         log(self.cfg, f"[HIGHLIGHTS] live attribute failed: {e}", "WARN")
-
-                    # 10.6) CPU-Sim TICK (NEU)
                     try:
                         self._cpu_sim_tick(dt)
                     except Exception as e:
                         log(self.cfg, f"[CPU] tick failed in loop: {e}", "WARN")
-
-                    # 11) Player-Audits (nur Anzeige)
                     for pid in range(1, 5):
                         if pid not in self.players:
                             self.players[pid] = {
@@ -6690,14 +5826,10 @@ class Watcher:
                         player_audits = self._player_field_filter(audits, pid)
                         if player_audits:
                             self.players[pid]["last_audits"].update(player_audits)
-
-                    # 10.7) Challenges tick (time/kill handling)
                     try:
                         self._challenge_tick(audits_ctl)
                     except Exception as e:
                         log(self.cfg, f"[CHALLENGE] tick failed in loop: {e}", "WARN")
-
-                    # 12) Ball-Tracking (auch bei One‑Ball aktivieren)
                     if self.snapshot_mode or (getattr(self, "challenge", {}).get("active") and getattr(self, "challenge", {}).get("kind") == "oneball"):
                         try:
                             self._ball_update(audits_ctl)
@@ -6742,8 +5874,6 @@ class Watcher:
         self._stop.clear()
         self.thread = threading.Thread(target=self._thread_main, daemon=True, name="WatcherThread")
         self.thread.start()
-
-# In Watcher.stop(): Injector-Kill einbauen (vor dem finalen Log)
     def stop(self):
         """
         Thread sauber stoppen und Session ggf. beenden.
@@ -6754,27 +5884,19 @@ class Watcher:
                 self.thread.join(timeout=3)
         except Exception:
             pass
-
-        # Session beenden, falls aktiv
         if self.game_active:
             try:
                 self.on_session_end()
             except Exception as e:
                 log(self.cfg, f"[WATCHER] on_session_end during stop failed: {e}", "WARN")
-
-        # HTTP-Detector stoppen
         try:
             self._stop_detector_http()
         except Exception:
             pass
-
-        # NEU: Injector-Prozesse beenden + verifizieren
         try:
             self._kill_injectors(force=True, verify=True, timeout_verify=3.0)
         except Exception as e:
             log(self.cfg, f"[HOOK] kill injectors failed: {e}", "WARN")
-
-        # B2S-Prozess beenden, falls VR-Hide aktiv
         try:
             self._kill_b2s_process_if_enabled()
         except Exception:
@@ -6787,20 +5909,12 @@ class Watcher:
 class Bridge(QObject):
     overlay_trigger = pyqtSignal()
     overlay_show = pyqtSignal()  # explicit “show overlay” signal (no toggle)
-    # Small info overlay with countdown (existing): args: rom, seconds
     mini_info_show = pyqtSignal(str, int)
-    # Achievement toast (existing): title, rom, seconds
     ach_toast_show = pyqtSignal(str, str, int)
-
-    # NEW: Challenges signals
-    # Start/stop the bottom-left timer overlay (seconds total)
     challenge_timer_start = pyqtSignal(int)
     challenge_timer_stop = pyqtSignal()
-    # Warm-up banner in the center (seconds, message)
     challenge_warmup_show = pyqtSignal(int, str)
-    # Small centered result banner (message, seconds, color hex like "#FFFFFF")
     challenge_info_show = pyqtSignal(str, int, str)
-    # Request the GUI to speak a short English phrase (volume is configured in Challenges tab)
     challenge_speak = pyqtSignal(str)
 
     def __init__(self):
@@ -6815,22 +5929,9 @@ class KBDLLHOOKSTRUCT(ctypes.Structure):
         ("time", wintypes.DWORD),
         ("dwExtraInfo", ctypes.c_void_p),
     ]
-
-# Low-level keyboard hook id
 WH_KEYBOARD_LL = 13
-
-# --- replace GlobalKeyHook with multi-binding version ---
 class GlobalKeyHook:
-    """
-    Installs a low-level keyboard hook (WH_KEYBOARD_LL) and invokes supplied callbacks
-    when configured VKs are pressed. Works regardless of foreground window.
-
-    Now supports multiple bindings:
-      bindings: list of dicts with keys:
-        - name: str
-        - get_vk: callable() -> int
-        - on_press: callable()
-    """
+ 
     def __init__(self, bindings: list[dict]):
         self._user32 = ctypes.windll.user32
         self._kernel32 = ctypes.windll.kernel32
@@ -6846,7 +5947,6 @@ class GlobalKeyHook:
             if nCode == 0 and wParam in (WM_KEYDOWN, WM_SYSKEYDOWN):
                 kb = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
                 vk = int(kb.vkCode)
-                # dispatch to all matching bindings
                 for b in self._bindings:
                     try:
                         want = int(b.get("get_vk", lambda: -1)())
@@ -6855,7 +5955,6 @@ class GlobalKeyHook:
                     if want and vk == want:
                         cb = b.get("on_press")
                         if cb:
-                            # don’t steal focus, schedule on GUI thread
                             QTimer.singleShot(0, cb)
         except Exception:
             pass
@@ -7010,10 +6109,7 @@ class OverlayWindow(QWidget):
             pass
 
     def _icon_local(self, key: str) -> str:
-        """
-        Small icon helper for the overlay (Best Ball / Extra Ball).
-        By default use emojis (unless OVERLAY['prefer_ascii_icons'] is True).
-        """
+        
         use_emojis = not bool(self.parent_gui.cfg.OVERLAY.get("prefer_ascii_icons", False))
         if use_emojis:
             emoji_map = {
@@ -7224,17 +6320,11 @@ class OverlayWindow(QWidget):
             self.request_rotation()
 
     def _layout_positions_for(self, w: int, h: int, portrait_pre_render: bool = False):
-        """
-        Positioniert Title und Body.
-        - Title bekommt die volle Breite und AlignHCenter, damit er immer mittig sitzt.
-        - Entfernt jegliche Label-Margins/Indents (kein links-/rechts-Offset).
-        - Funktioniert identisch für Landscape und Portrait (inkl. Pre-Render für Rotation).
-        """
+       
         if hasattr(self, "text_container"):
             self.text_container.setGeometry(0, 0, w, h)
 
         pad = 24
-        # Title wirklich exakt horizontal zentrieren und ohne Einrückungen rendern
         try:
             self.title.setAlignment(Qt.AlignmentFlag.AlignHCenter)
             self.title.setIndent(0)
@@ -7246,7 +6336,6 @@ class OverlayWindow(QWidget):
         t_h = self.title.sizeHint().height()
 
         if not self.portrait_mode:
-            # Landscape: Titel über volle Breite, Body darunter
             self.title.setGeometry(0, pad, w, t_h)
             body_top = self.title.y() + t_h + 10
             body_h = h - body_top - pad
@@ -7258,8 +6347,6 @@ class OverlayWindow(QWidget):
                 pass
             self.body.setGeometry(body_x, body_top, body_w, max(80, body_h))
             return
-
-        # Portrait: sowohl für Pre-Render als auch Live dasselbe Layout
         self.title.setGeometry(0, pad, w, t_h)
         body_w = int(w * 0.92)
         body_x = (w - body_w) // 2
@@ -7290,11 +6377,7 @@ class OverlayWindow(QWidget):
                 return None
 
     def _apply_rotation_snapshot(self, force: bool = False):
-        """
-        Portrait-Render: Pre-Layout im gedrehten Koordinatensystem, danach 90° rotieren.
-        WICHTIG: Kein Alpha-Crop mehr – das verursachte bei Anti-Aliasing feine Offsets.
-        Stattdessen das rotierte Bild als Ganzes zentriert (normalerweise exakt W×H) zeichnen.
-        """
+      
         if not self.portrait_mode:
             self.rotated_label.hide()
             self.container.show()
@@ -7312,8 +6395,6 @@ class OverlayWindow(QWidget):
                 return
 
             angle = -90 if getattr(self, "rotate_ccw", True) else 90
-
-            # Hintergrund (rotiert und skaliert auf Fenstergröße)
             if self.bg_url and os.path.isfile(self.bg_url):
                 pm = QPixmap(self.bg_url)
                 if not pm.isNull():
@@ -7329,8 +6410,6 @@ class OverlayWindow(QWidget):
                     bg_img = QImage(W, H, QImage.Format.Format_ARGB32_Premultiplied); bg_img.fill(Qt.GlobalColor.black)
             else:
                 bg_img = QImage(W, H, QImage.Format.Format_ARGB32_Premultiplied); bg_img.fill(Qt.GlobalColor.black)
-
-            # Pre-Layout: Wir layouten in (pre_w, pre_h) = (H, W)
             pre_w, pre_h = H, W
             old_geom = self.text_container.geometry()
             old_title_vis = self.title.isVisible()
@@ -7339,12 +6418,8 @@ class OverlayWindow(QWidget):
             self.text_container.setGeometry(0, 0, pre_w, pre_h)
             self.title.setVisible(True)
             self.body.setVisible(True)
-
-            # Normales Layout (Titel oben, Body darunter) – Titel ist auf volle Breite und AlignHCenter gesetzt
             self._layout_positions_for(pre_w, pre_h, portrait_pre_render=False)
             QApplication.processEvents()
-
-            # Container (mit Title+Body) in Bild rendern
             content_pre = QImage(pre_w, pre_h, QImage.Format.Format_ARGB32_Premultiplied)
             content_pre.fill(Qt.GlobalColor.transparent)
             p_all = QPainter(content_pre)
@@ -7352,15 +6427,9 @@ class OverlayWindow(QWidget):
                 self.text_container.render(p_all)
             finally:
                 p_all.end()
-
-            # Rotieren (ergibt für 90° normalerweise Größe W×H)
             content_rot = content_pre.transformed(QTransform().rotate(angle), Qt.TransformationMode.SmoothTransformation)
-
-            # Widgets verbergen – wir zeigen den flachen Snapshot
             self.container.hide()
             self.text_container.hide()
-
-            # Finalbild zusammensetzen – KEIN Alpha-BBox-Crop mehr
             final_img = QImage(bg_img)
             p_final = QPainter(final_img)
             try:
@@ -7370,8 +6439,6 @@ class OverlayWindow(QWidget):
                 dx = (W - content_rot.width()) // 2
                 dy = (H - content_rot.height()) // 2
                 p_final.drawImage(dx, dy, content_rot)
-
-                # Rahmen
                 pen = QPen(QColor(255, 255, 255, 80))
                 pen.setWidth(2)
                 p_final.setPen(pen)
@@ -7379,8 +6446,6 @@ class OverlayWindow(QWidget):
                 p_final.drawRoundedRect(1, 1, W - 2, H - 2, 18, 18)
             finally:
                 p_final.end()
-
-            # Snapshot anzeigen
             self.text_container.setGeometry(old_geom)
             self.title.setVisible(old_title_vis)
             self.body.setVisible(old_body_vis)
@@ -7470,11 +6535,7 @@ class OverlayWindow(QWidget):
 
 
     def set_html(self, html: str, session_title: Optional[str] = None):
-        """
-        Render an arbitrary HTML page inside the overlay (portrait aware).
-        If session_title == "", the title line is intentionally left empty.
-        If session_title is None, fallback to 'Highlights'.
-        """
+       
         self._current_combined = None
         self._current_title = "Highlights" if session_title is None else session_title
         self.title.setText(self._current_title)
@@ -7485,25 +6546,16 @@ class OverlayWindow(QWidget):
         self.request_rotation(force=True)
 
     def set_combined(self, combined: dict, session_title: Optional[str] = None):
-        """
-        Combined multi-column highlights. If session_title == "", no title is shown.
-        If session_title is None, fallback to 'Highlights'.
-        """
+      
         self._current_combined = combined or {}
         self._current_title = "Highlights" if session_title is None else session_title
         self._render_fixed_columns()
 
     def _render_fixed_columns(self):
-        """
-        Render columns for present entries (Global/Players/CPU) in the exact order of combined['players'].
-        Each entry may provide an optional 'title' to override the default header.
-        Zusätzlich: dedupliziere pro Spieler-ID zur Sicherheit.
-        """
+       
         self.title.setText(self._current_title or "Highlights")
         combined = self._current_combined or {}
         players_raw = combined.get("players", []) or []
-
-        # Dedupe by id (first occurrence wins)
         seen_ids = set()
         players = []
         for e in players_raw:
@@ -7525,16 +6577,12 @@ class OverlayWindow(QWidget):
                 pid = int(entry.get("id", entry.get("player", 0)) or 0)
             except Exception:
                 pid = 0
-
-            # Colors: P1..P4 from cfg, others neutral gray
             color = self.player_colors[pid - 1] if 1 <= pid <= 4 else "#7A7A7A"
             hld = (entry.get("highlights") or {})
             try:
                 score_abs = int(entry.get("score", 0) or 0)
             except Exception:
                 score_abs = 0
-
-            # Header: optional override
             title = entry.get("title")
             if not title:
                 if pid == 5:
@@ -7543,17 +6591,11 @@ class OverlayWindow(QWidget):
                     title = "Global"
                 else:
                     title = f"Player {pid}"
-
-            # Header
             lines = []
             lines.append(f"<div style='font-weight:700;color:{color};margin-bottom:4px;'>{esc(title)}</div>")
-
-            # Score total
             sc_txt = f"{score_abs:,d}".replace(",", ".")
             lines.append("<div style='font-weight:600;color:#FFFFFF;margin:6px 0 2px 0;'>Score</div>")
             lines.append(f"<div style='color:{self.highlight_color};'>{sc_txt}</div>")
-
-            # Highlights
             for cat in ["Power", "Precision", "Fun"]:
                 arr = hld.get(cat, [])
                 if arr:
@@ -7583,13 +6625,7 @@ class OverlayWindow(QWidget):
 
 
 class MiniInfoOverlay(QWidget):
-    """
-    Small, always-on-top, non-interactive overlay with dynamic size and
-    a countdown that auto-closes after N seconds.
-    Always centers itself on the primary monitor.
-    Portrait-aware: when portrait_mode is enabled, the content is rotated
-    by 90° (CCW or CW) to match the main overlay orientation.
-    """
+ 
     def __init__(self, parent: "MainWindow"):
         super().__init__(None)
         self.parent_gui = parent
@@ -7603,8 +6639,6 @@ class MiniInfoOverlay(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-
-        # Visual config
         ov = self.parent_gui.cfg.OVERLAY or {}
         base_pt = int(ov.get("base_body_size", 20))
         self._body_pt = max(12, base_pt + 3)           # etwas größer
@@ -7616,17 +6650,11 @@ class MiniInfoOverlay(QWidget):
         self._pad_w = 28
         self._pad_h = 22
         self._max_text_width = 520
-
-        # Rotation flags (pro Render frisch aus cfg gelesen)
         self._portrait_mode = bool(ov.get("portrait_mode", True))
         self._rotate_ccw = bool(ov.get("portrait_rotate_ccw", True))
-
-        # Laufzeit / Countdown
         self._remaining = 0
         self._base_msg = ""
         self._last_center = (960, 540)
-
-        # Anzeige: Snapshot-Label (rotiert/unrotiert), kein interaktives Widget nötig
         self._snap_label = QLabel(self)
         self._snap_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._snap_label.setStyleSheet("background:transparent;")
@@ -7652,7 +6680,6 @@ class MiniInfoOverlay(QWidget):
         )
 
     def _render_message_image(self, html: str) -> QImage:
-        # Offscreen-Label erzeugen, um HTML maßzuschneidern
         tmp = QLabel()
         tmp.setTextFormat(Qt.TextFormat.RichText)
         tmp.setStyleSheet(f"color:{self._red};background:transparent;")
@@ -7674,11 +6701,9 @@ class MiniInfoOverlay(QWidget):
         p = QPainter(img)
         try:
             p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.TextAntialiasing, True)
-            # Hintergrund
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(self._bg_color)
             p.drawRoundedRect(0, 0, W, H, self._radius, self._radius)
-            # Text mittig
             margin_left = (W - text_w) // 2
             margin_top = (H - text_h) // 2
             tmp.render(p, QPoint(margin_left, margin_top))
@@ -7687,7 +6712,6 @@ class MiniInfoOverlay(QWidget):
         return img
 
     def _refresh_view(self):
-        # Portrait-/Drehrichtung frisch lesen
         ov = self.parent_gui.cfg.OVERLAY or {}
         self._portrait_mode = bool(ov.get("portrait_mode", True))
         self._rotate_ccw = bool(ov.get("portrait_rotate_ccw", True))
@@ -7719,19 +6743,14 @@ class MiniInfoOverlay(QWidget):
         self._refresh_view()
 
     def show_info(self, message: str, seconds: int = 5, center: tuple[int, int] | None = None, color_hex: str | None = None):
-        """
-        Show message with a countdown (‘closing in X…’) and auto-hide.
-        Always centers on the primary monitor. Optional text color override (hex).
-        """
+       
         self._base_msg = str(message or "").strip()
         self._remaining = max(1, int(seconds))
-        # Update color if provided
         if color_hex:
             try:
                 self._red = color_hex
             except Exception:
                 pass
-        # Always use primary center (ignores 'center' arg by design)
         self._last_center = self._primary_center()
         self._timer.stop()
         self._refresh_view()
@@ -7740,10 +6759,7 @@ class MiniInfoOverlay(QWidget):
 
 
 def read_active_players(base_dir: str):
-    """
-    Read all activePlayers JSONs, dedupe by player id (keep newest), sorted by id.
-    UPDATED: strip achievements from returned payloads (GUI/Overlay must not see achievements).
-    """
+  
     ap_dir = os.path.join(base_dir, "session_stats", "Highlights", "activePlayers")
     if not os.path.isdir(ap_dir):
         return []
@@ -7790,12 +6806,7 @@ def read_active_players(base_dir: str):
     return result
 
 class AchToastWindow(QWidget):
-    """
-    One-shot Steam-like achievement toast window:
-      - Renders at bottom-right of the primary monitor
-      - Auto-hides after N seconds
-      - Portrait-aware: rotates content 90° CCW (or CW) based on config, while keeping bottom-right placement
-    """
+
     finished = pyqtSignal()
 
     def __init__(self, parent: "MainWindow", title: str, rom: str, seconds: int = 5):
@@ -7831,9 +6842,6 @@ class AchToastWindow(QWidget):
         self._timer.start()
         self.show()
         self.raise_()
-
-
-    # In class AchToastWindow (einfügen)
     def _primary_geometry(self) -> QRect:
         try:
             scr = QApplication.primaryScreen()
@@ -7919,17 +6927,11 @@ class AchToastWindow(QWidget):
         p = QPainter(img)
         try:
             p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.TextAntialiasing, True)
-
-            # Background
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(QColor(0, 0, 0, 210))
             p.drawRoundedRect(0, 0, W, H, 14, 14)
-
-            # Icon
             pm = self._icon_pixmap(icon_sz)
             p.drawPixmap(pad, (H - icon_sz)//2, pm)
-
-            # Texts
             x_text = pad + icon_sz + gap
             y_top = pad + max(0, (icon_sz - text_h)//2)
 
@@ -7949,8 +6951,6 @@ class AchToastWindow(QWidget):
                 p.drawText(QRect(x_text, y, text_w, rect_rom.height()), int(flags), rom_text)
         finally:
             p.end()
-
-        # Rotate if portrait
         portrait = bool(ov.get("portrait_mode", True))
         if portrait:
             ccw = bool(ov.get("portrait_rotate_ccw", True))
@@ -7984,12 +6984,7 @@ class AchToastWindow(QWidget):
 
 
 class AchToastManager(QObject):
-    """
-    Sequential toast manager:
-      - enqueue(title, rom, seconds): queues a toast request
-      - shows one AchToastWindow at a time
-      - each toast uses its own window instance (as requested)
-    """
+ 
     def __init__(self, parent: "MainWindow"):
         super().__init__(parent)
         self.parent_gui = parent
@@ -8008,11 +7003,9 @@ class AchToastManager(QObject):
         self._active = True
         t, r, s = self._queue.pop(0)
         win = AchToastWindow(self.parent_gui, t, r, s)
-        # When it finishes, chain the next
         win.finished.connect(self._on_finished)
 
     def _on_finished(self):
-        # Small delay to avoid overlap flicker
         QTimer.singleShot(80, self._show_next)
 
 
@@ -8036,8 +7029,6 @@ class ChallengeCountdownOverlay(QWidget):
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.resize(400, 120)
         self.show()
-
-        # Echte Topmost-Priorität über DX/Borderless
         try:
             import win32gui, win32con
             hwnd = int(self.winId())
@@ -8062,13 +7053,8 @@ class ChallengeCountdownOverlay(QWidget):
             QTimer.singleShot(3000, self._kill_vpx)  # +3s Puffer
             return
         self._render_and_place()
-
-
-    # In class ChallengeCountdownOverlay: _kill_vpx ersetzen
     def _kill_vpx(self):
-        """
-        Beende NUR den Visual Pinball Player via ALT+F4; Fallback WM_CLOSE. Kein taskkill.
-        """
+     
         try:
             w = getattr(self.parent_gui, "watcher", None)
             if w and w._alt_f4_visual_pinball_player(wait_ms=3000):
@@ -8076,8 +7062,6 @@ class ChallengeCountdownOverlay(QWidget):
                 return
         except Exception:
             pass
-
-        # Fallback: WM_CLOSE
         try:
             import win32gui, win32con
             def _cb(hwnd, _):
@@ -8102,8 +7086,6 @@ class ChallengeCountdownOverlay(QWidget):
             return
         W, H = img.width(), img.height()
         self.setFixedSize(W, H)
-
-        # Immer unten-links (Portrait schon eingerechnet, weil img bereits rotiert ist)
         scr = QApplication.primaryScreen()
         geo = scr.geometry() if scr else QRect(0, 0, 1280, 720)
         pad = 40
@@ -8123,19 +7105,13 @@ class ChallengeCountdownOverlay(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
         p.setPen(Qt.GlobalColor.white)
-
-        # Hintergrund
         p.fillRect(0, 0, w, h, QColor(0, 0, 0, 180))
-
-        # Zeit
         mins, secs = divmod(self._left, 60)
         txt = f"{mins:02d}:{secs:02d}"
         font = QFont("Segoe UI", 48, QFont.Weight.Bold)
         p.setFont(font)
         p.drawText(QRect(0, 0, w, h), Qt.AlignmentFlag.AlignCenter, txt)
         p.end()
-
-        # Portrait-Rotation per Config
         try:
             ov = self.parent_gui.cfg.OVERLAY or {}
             if ov.get("portrait_mode", False):
@@ -8151,12 +7127,6 @@ class ChallengeCountdownOverlay(QWidget):
             p = QPainter(self)
             p.drawPixmap(0, 0, self._pix)
             p.end()
-
-
-
-# ---------------------------------------------------------------------
-# Main Window
-# ---------------------------------------------------------------------
 class MainWindow(QMainWindow):
     def __init__(self, cfg: AppConfig, watcher: Watcher, bridge: Bridge):
         super().__init__()
@@ -8170,10 +7140,7 @@ class MainWindow(QMainWindow):
 
         tabs = QTabWidget()
         self.setCentralWidget(tabs)
-        # NEW: keep a handle to the main tab widget for Achievements tab builder
         self.main_tabs = tabs
-
-        # Status tab
         status_tab = QWidget()
         status_layout = QVBoxLayout(status_tab)
         self.status_label = QLabel("Watcher: running")
@@ -8191,8 +7158,6 @@ class MainWindow(QMainWindow):
         row2.addWidget(self.btn_minimize); row2.addStretch(1)
         status_layout.addLayout(row2)
         tabs.addTab(status_tab, "Status")
-
-        # Overlay tab (original UI restored)
         overlay_tab = QWidget(); ov_layout = QVBoxLayout(overlay_tab)
         self.bridge.overlay_trigger.connect(self._on_overlay_trigger)
         self.bridge.overlay_show.connect(self._show_overlay_latest)
@@ -8200,17 +7165,11 @@ class MainWindow(QMainWindow):
 
         self.bridge.ach_toast_show.connect(self._on_ach_toast_show)
         self._ach_toast_mgr = AchToastManager(self)
-        
-        
-        
-        # AI Evaluation tab (English)
         ai_tab = QWidget()
         ai_layout = QVBoxLayout(ai_tab)
         self.ai_view = QTextBrowser()
         self.ai_view.setToolTip("Shows AI outputs: Coach tips and Skill profile.")
         ai_layout.addWidget(self.ai_view)
-
-        # Refresh-Button
         row_ai = QHBoxLayout()
         self.btn_ai_refresh = QPushButton("Refresh now")
         self.btn_ai_refresh.setToolTip("Reload AI Coach tips and Skill Profile from disk.")
@@ -8220,27 +7179,20 @@ class MainWindow(QMainWindow):
         ai_layout.addLayout(row_ai)
 
         tabs.addTab(ai_tab, "AI Evaluation")
-
-        # Initial fill
         try:
             self.update_ai_evaluation_tab()
         except Exception:
             pass
-
-        # --- Portrait / Rotation ---
         row_portrait = QHBoxLayout()
         self.chk_portrait = QCheckBox("Portrait mode (rotate 90°)")
         self.chk_portrait.setChecked(bool(self.cfg.OVERLAY.get("portrait_mode", True)))
         self.chk_portrait.stateChanged.connect(self._on_portrait_toggle)
-        # NEW: CCW/CW toggle
         self.chk_portrait_ccw = QCheckBox("Rotate CCW")
         self.chk_portrait_ccw.setChecked(bool(self.cfg.OVERLAY.get("portrait_rotate_ccw", True)))
         self.chk_portrait_ccw.stateChanged.connect(self._on_portrait_ccw_toggle)
         row_portrait.addWidget(self.chk_portrait)
         row_portrait.addWidget(self.chk_portrait_ccw)
         row_portrait.addStretch(1)
-
-        # --- Scale ---
         row_scale = QHBoxLayout()
         row_scale.addWidget(QLabel("Overlay size:"))
         self.sld_scale = QSlider(Qt.Orientation.Horizontal)
@@ -8250,8 +7202,6 @@ class MainWindow(QMainWindow):
         row_scale.addWidget(self.sld_scale)
         self.lbl_scale = QLabel(f"{self.sld_scale.value()}%")
         row_scale.addWidget(self.lbl_scale)
-
-        # --- XY ---
         row_xy = QHBoxLayout()
         self.chk_use_xy = QCheckBox("Use X/Y")
         self.chk_use_xy.setChecked(bool(self.cfg.OVERLAY.get("use_xy", False)))
@@ -8263,16 +7213,12 @@ class MainWindow(QMainWindow):
         self.spn_y = QSpinBox(); self.spn_y.setRange(-100000, 100000)
         self.spn_y.setValue(int(self.cfg.OVERLAY.get("pos_y", 100))); self.spn_y.valueChanged.connect(self._on_xy_changed)
         row_xy.addWidget(QLabel("Y:")); row_xy.addWidget(self.spn_y); row_xy.addStretch(1)
-
-        # --- Auto-show overlay after VPX closes ---
         row_auto_show = QHBoxLayout()
         self.chk_auto_show = QCheckBox("Auto-show overlay after VPX closes")
         self.chk_auto_show.setChecked(bool(self.cfg.OVERLAY.get("auto_show_on_end", True)))
         self.chk_auto_show.stateChanged.connect(self._on_auto_show_toggle)
         row_auto_show.addWidget(self.chk_auto_show)
         row_auto_show.addStretch(1)
-
-        # Add rows to overlay layout (VR row removed)
         for lay in (row_portrait, row_scale, row_xy, row_auto_show):
             ov_layout.addLayout(lay)
 
@@ -8349,22 +7295,16 @@ class MainWindow(QMainWindow):
         ov_layout.addWidget(info)
         overlay_tab.setLayout(ov_layout)
         tabs.addTab(overlay_tab, "Overlay")
-
-        # Logs tab
         log_tab = QWidget()
         log_layout = QVBoxLayout(log_tab)
         self.log_view = QTextEdit()
         self.log_view.setReadOnly(True)
         log_layout.addWidget(self.log_view)
         tabs.addTab(log_tab, "Logs")
-
-        # Settings tab
         settings_tab = QWidget()
         settings_layout = QVBoxLayout(settings_tab)
 
         self._build_challenges_tab()
-
-        # Paths (promoted to attributes so we can tool-tip them)
         self.base_label = QLabel(f"BASE: {self.cfg.BASE}")
         self.btn_base = QPushButton("Change BASE")
         self.btn_base.clicked.connect(self.change_base)
@@ -8379,8 +7319,6 @@ class MainWindow(QMainWindow):
         self.btn_tables = QPushButton("Change TABLES (optional)")
         self.btn_tables.clicked.connect(self.change_tables)
         self.btn_tables.setToolTip("Change the Tables directory (optional).")
-
-        # Repair / Prefetch
         self.btn_repair = QPushButton("Repair data folders (recreate + fetch index)")
         self.btn_repair.clicked.connect(self._repair_data_folders)
         self.btn_repair.setToolTip("Recreate the base folder structure and fetch index/rom-names if missing.")
@@ -8390,35 +7328,23 @@ class MainWindow(QMainWindow):
         self.btn_prefetch.clicked.connect(self._prefetch_maps_now)
         self.btn_prefetch.setToolTip("Cache missing NVRAM maps in the background. See watcher.log for progress.")
         settings_layout.addWidget(self.btn_prefetch)
-
-        # Add remaining path widgets
         for w in (self.base_label, self.btn_base, self.nvram_label, self.btn_nvram, self.tables_label, self.btn_tables):
             settings_layout.addWidget(w)
 
         tabs.addTab(settings_tab, "Settings")
-
-        # Stats tab
         stats_tab = QWidget()
         stats_layout = QVBoxLayout(stats_tab)
 
         self.stats_tabs = QTabWidget()
         self.stats_tabs.setToolTip("Shows statistics for Global, Players 1–4, and CPU simulation.")
         self.stats_views: Dict[str | int, QTextBrowser] = {}
-
-        # Global
         self.stats_views["global"] = QTextBrowser()
         self.stats_tabs.addTab(self.stats_views["global"], "Global")
-
-        # Players 1..4
         for i in range(1, 5):
             self.stats_views[i] = QTextBrowser()
             self.stats_tabs.addTab(self.stats_views[i], f"Player {i}")
-
-        # CPU-Sim (once)
         self.stats_views["cpu"] = QTextBrowser()
         self.stats_tabs.addTab(self.stats_views["cpu"], "CPU-Sim")
-
-        # CPU-Sim Controls (checkbox + difficulty button) above tabs
         row_cpu = QHBoxLayout()
         self.chk_cpu_active = QCheckBox("CPU-Sim active")
         try:
@@ -8440,8 +7366,6 @@ class MainWindow(QMainWindow):
         stats_layout.addLayout(row_cpu)
         stats_layout.addWidget(self.stats_tabs)
         tabs.addTab(stats_tab, "Stats")
-
-        # Timers
         self.timer_logs = QTimer(self)
         self.timer_logs.timeout.connect(self._update_logs)
         self.timer_logs.start(1200)
@@ -8454,15 +7378,11 @@ class MainWindow(QMainWindow):
         self.overlay_refresh_timer.setInterval(2000)
         self.overlay_refresh_timer.timeout.connect(self._refresh_overlay_live)
         if bool(self.cfg.OVERLAY.get("live_updates", False)): self.overlay_refresh_timer.start()
-
-        # Joystick poll
         self._joy_toggle_last_mask = 0
         self._joy_toggle_timer = QTimer(self)
         self._joy_toggle_timer.setInterval(50)
         self._joy_toggle_timer.timeout.connect(self._on_joy_toggle_poll)
         self._apply_toggle_source()
-
-        # Keyboard raw input
         self._last_toggle_ts = 0.0
 
         if QSystemTrayIcon.isSystemTrayAvailable():
@@ -8485,8 +7405,6 @@ class MainWindow(QMainWindow):
 
         self._init_tooltips_main()
         self._init_overlay_tooltips()
-
-        # NEW: build Achievements main tab (two subtabs) and start a refresh timer
         try:
             self._build_achievements_tab()
         except Exception:
@@ -8495,8 +7413,6 @@ class MainWindow(QMainWindow):
             self._init_achievements_timer()
         except Exception:
             pass
-
-        # --- System Stats tab ---
         try:
             self._build_system_stats_tab()
             self._stats_refresh_now()  # initial fill
@@ -8504,10 +7420,7 @@ class MainWindow(QMainWindow):
             pass
 
     def _first_screen_geometry(self) -> QRect:
-        """
-        Geometry des ersten Windows-Monitors (QApplication.screens()[0]).
-        Fallback: Primary-Screen, sonst 1280x720.
-        """
+    
         try:
             screens = QApplication.screens() or []
             if screens:
@@ -8518,15 +7431,11 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         return QRect(0, 0, 1280, 720)
-
-
-    # Helper in MainWindow:
     def _msgbox_topmost(self, kind: str, title: str, text: str):
         box = QMessageBox(self)
         box.setWindowTitle(str(title))
         box.setText(str(text))
         box.setIcon(QMessageBox.Icon.Information if kind == "info" else QMessageBox.Icon.Warning)
-        # Always on top without stealing focus
         box.setWindowFlags(box.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         box.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
         box.setModal(True)
@@ -8535,13 +7444,8 @@ class MainWindow(QMainWindow):
         return box.exec()
 
     def _on_challenge_timer_start(self, total_seconds: int):
-        """
-        Startet den kleinen Countdown unten links NICHT sofort, sondern erst nach 30s Warm‑Up.
-        - Nach 30s wird der Timer mit (total_seconds - 30) gestartet.
-        - WICHTIG: Keine Guard-Abfrage mehr auf watcher.game_active – Countdown startet robust auch bei kurzen Scanner-Glitches.
-        """
+   
         try:
-            # Vorherige Delay-Timer abbrechen
             try:
                 if hasattr(self, "_challenge_timer_delay") and self._challenge_timer_delay:
                     self._challenge_timer_delay.stop()
@@ -8549,8 +7453,6 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
             self._challenge_timer_delay = None
-
-            # Vorheriges Countdown-Fenster schließen/löschen
             try:
                 if hasattr(self, "_challenge_timer") and self._challenge_timer:
                     self._challenge_timer.close()
@@ -8561,13 +7463,10 @@ class MainWindow(QMainWindow):
 
             warmup_sec = 30
             play_sec = max(1, int(total_seconds or 0) - warmup_sec)
-
-            # Verzögert nach Warm‑Up starten
             self._challenge_timer_delay = QTimer(self)
             self._challenge_timer_delay.setSingleShot(True)
 
             def _spawn():
-                # Safety: vorhandenes Fenster weg
                 try:
                     if hasattr(self, "_challenge_timer") and self._challenge_timer:
                         self._challenge_timer.close()
@@ -8575,10 +7474,7 @@ class MainWindow(QMainWindow):
                 except Exception:
                     pass
                 self._challenge_timer = None
-
-                # Countdown-Fenster erzeugen (defensiv)
                 try:
-                    # Log-Hilfe (optional, falls du in watcher.log schauen willst)
                     log(self.cfg, f"[CHALLENGE] countdown spawn – seconds={play_sec}")
                 except Exception:
                     pass
@@ -8587,21 +7483,16 @@ class MainWindow(QMainWindow):
                     self._challenge_timer = ChallengeCountdownOverlay(self, play_sec)
                 except Exception:
                     self._challenge_timer = None
-
-            # Start nach Warm‑up
             self._challenge_timer_delay.timeout.connect(lambda: QTimer.singleShot(0, _spawn))
             self._challenge_timer_delay.start(warmup_sec * 1000)
         except Exception:
             pass
-
-    # In class MainWindow: BEIDE Vorkommen von _start_timed_challenge_ui anpassen – KEINE Sprachausgabe hier
     def _start_timed_challenge_ui(self):
         if not self.watcher or not self.watcher.game_active:
             QMessageBox.information(self, "Challenge",
                                     "Start a table first. The challenge key works only while a game is running.")
             return
         try:
-            # keine Sprachausgabe hier – sie kommt im Warm‑up‑Handler, wenn das Overlay sichtbar ist
             self.watcher.start_timed_challenge(total_seconds=330)
         except Exception:
             pass
@@ -8639,25 +7530,12 @@ class MainWindow(QMainWindow):
             self._msgbox_topmost("warn", "Repair", f"Repair failed:\n{e}")
 
     def _mods_for_vk(self, vk: int) -> int:
-        """
-        Force no modifiers for WM_HOTKEY registrations, so plain letters work without Alt.
-        NOTE: Plain letters can konflikieren mit anderen Programmen. F-Keys bleiben empfohlen.
-        """
+        
         return 0
-     
-    # ===== Challenges tab (GUI) =====
     def _build_challenges_tab(self):
-        """
-        Build the 'Challenges' main tab:
-        - Two modes: Timed (5:30) and One-Ball
-        - Per-mode input source (keyboard/joystick), bind button, current binding label
-        - Volume slider for voice announcements
-        - Latest results for the current ROM
-        """
+       
         tab = QWidget()
         layout = QVBoxLayout(tab)
-
-        # Timed challenge row
         grp_t = QGroupBox("Timed Challenge (5:00)")
         lay_t = QHBoxLayout(grp_t)
 
@@ -8683,35 +7561,6 @@ class MainWindow(QMainWindow):
         lay_t.addWidget(self.btn_ch_timed_bind)
         lay_t.addWidget(self.lbl_ch_timed_binding)
         lay_t.addStretch(1)
-
-        # One-Ball challenge row
-        grp_o = QGroupBox("One-Ball Challenge")
-        lay_o = QHBoxLayout(grp_o)
-
-        self.btn_ch_one_start = QPushButton("Start One-Ball Challenge")
-        self.btn_ch_one_start.setToolTip("Arm the one-ball challenge. Ends after your first ball drains.")
-        self.btn_ch_one_start.clicked.connect(self._start_one_ball_challenge_ui)
-
-        self.cmb_ch_one_src = QComboBox()
-        self.cmb_ch_one_src.addItems(["keyboard", "joystick"])
-        self.cmb_ch_one_src.setCurrentText(self.cfg.OVERLAY.get("challenge_one_input_source", "keyboard"))
-        self.cmb_ch_one_src.setToolTip("Input source for the One-Ball Challenge hotkey/button.")
-        self.cmb_ch_one_src.currentTextChanged.connect(self._on_ch_one_src_changed)
-
-        self.btn_ch_one_bind = QPushButton("Bind…")
-        self.btn_ch_one_bind.setToolTip("Bind a key or joystick button for starting the One-Ball Challenge.")
-        self.btn_ch_one_bind.clicked.connect(self._on_bind_ch_one_clicked)
-
-        self.lbl_ch_one_binding = QLabel(self._ch_binding_label_text(kind="one"))
-        lay_o.addWidget(self.btn_ch_one_start)
-        lay_o.addSpacing(14)
-        lay_o.addWidget(QLabel("Source:"))
-        lay_o.addWidget(self.cmb_ch_one_src)
-        lay_o.addWidget(self.btn_ch_one_bind)
-        lay_o.addWidget(self.lbl_ch_one_binding)
-        lay_o.addStretch(1)
-
-        # Voice volume row
         grp_v = QGroupBox("Voice")
         lay_v = QHBoxLayout(grp_v)
         lay_v.addWidget(QLabel("Volume:"))
@@ -8724,20 +7573,15 @@ class MainWindow(QMainWindow):
         lay_v.addWidget(self.lbl_ch_volume)
         lay_v.addStretch(1)
         grp_v.setToolTip("Adjust the voice volume for challenge announcements.")
-
-        # Results view
         self.ch_results_view = QTextBrowser()
         self.ch_results_view.setToolTip("Latest challenge results for the current ROM.")
         self._update_challenges_results_view()
 
         layout.addWidget(grp_t)
-        layout.addWidget(grp_o)
         layout.addWidget(grp_v)
         layout.addWidget(QLabel("Latest results – Timed vs One-Ball"))
         layout.addWidget(self.ch_results_view)
         self.main_tabs.addTab(tab, "Challenges")
-
-        # Connect bridge signals
         self.bridge.challenge_warmup_show.connect(self._on_challenge_warmup_show)
         self.bridge.challenge_timer_start.connect(self._on_challenge_timer_start)
         self.bridge.challenge_timer_stop.connect(self._on_challenge_timer_stop)
@@ -8751,15 +7595,8 @@ class MainWindow(QMainWindow):
 
     def _ch_results_path(self, rom: str) -> str:
         return os.path.join(self.cfg.BASE, "challenges", "history", f"{sanitize_filename(rom)}.json")
-
-    # In class MainWindow: REPLACE the whole _update_challenges_results_view with the two-column scoreboard
     def _update_challenges_results_view(self):
-        """
-        Show latest challenge scores in two side-by-side columns:
-          - Left: Timed (score, rom)
-          - Right: One-Ball (score, rom)
-        Aggregated across all ROMs, up to 20 entries per column, newest first.
-        """
+     
         import glob
         from datetime import datetime
 
@@ -8769,7 +7606,6 @@ class MainWindow(QMainWindow):
             try:
                 if not iso:
                     return float(fallback_mtime or 0.0)
-                # Accept 'Z' and timezone offsets
                 s = str(iso).strip().replace("Z", "+00:00")
                 return datetime.fromisoformat(s).timestamp()
             except Exception:
@@ -8781,8 +7617,6 @@ class MainWindow(QMainWindow):
 
         timed = []
         oneball = []
-
-        # Collect all results from all ROM history files
         for fp in glob.glob(os.path.join(hist_dir, "*.json")):
             try:
                 st = os.stat(fp)
@@ -8805,14 +7639,10 @@ class MainWindow(QMainWindow):
                     timed.append(entry)
                 elif kind == "oneball" or kind == "one-ball":
                     oneball.append(entry)
-
-        # Sort newest first and keep up to 20 each
         timed.sort(key=lambda e: e["ts"], reverse=True)
         oneball.sort(key=lambda e: e["ts"], reverse=True)
         timed = timed[:20]
         oneball = oneball[:20]
-
-        # Build HTML (two columns)
         css = (
             "<style>"
             "table{border-collapse:collapse}"
@@ -8850,7 +7680,6 @@ class MainWindow(QMainWindow):
         self.cfg.OVERLAY["challenge_time_input_source"] = src
         self.cfg.save()
         self.lbl_ch_timed_binding.setText(self._ch_binding_label_text(kind="time"))
-        # Reinstall + Poll-Entscheidung aktualisieren
         self._refresh_input_bindings()
         self._apply_toggle_source()
 
@@ -8858,7 +7687,6 @@ class MainWindow(QMainWindow):
         self.cfg.OVERLAY["challenge_one_input_source"] = src
         self.cfg.save()
         self.lbl_ch_one_binding.setText(self._ch_binding_label_text(kind="one"))
-        # Reinstall + Poll-Entscheidung aktualisieren
         self._refresh_input_bindings()
         self._apply_toggle_source()
 
@@ -8887,14 +7715,10 @@ class MainWindow(QMainWindow):
         self._bind_challenge_key(kind="one")
 
     def _bind_challenge_key(self, kind: str):
-        """
-        Bind keyboard or joystick for a specific challenge ('time' | 'one').
-        UI/flow matches the overlay binding UX.
-        """
+      
         src = self.cfg.OVERLAY.get("challenge_time_input_source" if kind=="time" else "challenge_one_input_source", "keyboard")
 
         if src == "joystick":
-            # Simple capture of next pressed button (timeout 10s)
             dlg = QDialog(self)
             dlg.setWindowFlags(dlg.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
             dlg.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
@@ -8951,7 +7775,6 @@ class MainWindow(QMainWindow):
                             self.lbl_ch_one_binding.setText(self._ch_binding_label_text(kind="one"))
                         timer.stop()
                         dlg.accept()
-                        # Reinstall inputs after binding
                         self._refresh_input_bindings()
                         return
                     if time.time() - start_ts > 10.0:
@@ -8966,8 +7789,6 @@ class MainWindow(QMainWindow):
             timer.start()
             dlg.exec()
             return
-
-        # Keyboard bind
         class _TmpVKFilter(QAbstractNativeEventFilter):
             def __init__(self, cb):
                 super().__init__()
@@ -8990,7 +7811,6 @@ class MainWindow(QMainWindow):
         dlg = QDialog(self)
         dlg.setWindowTitle("Keyboard binding")
         dlg.resize(360, 140)
-        # Always on top + non-activating
         dlg.setWindowFlags(dlg.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
         dlg.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
 
@@ -9015,7 +7835,6 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
             dlg.accept()
-            # Reinstall inputs after binding
             self._refresh_input_bindings()
 
         def keyPressEvent(evt):
@@ -9031,30 +7850,16 @@ class MainWindow(QMainWindow):
         fil = _TmpVKFilter(on_vk)
         QCoreApplication.instance().installNativeEventFilter(fil)
         dlg.exec()
-
-
-
- 
-# ... in class MainWindow, replace _build_system_stats_tab with this version ...
     def _build_system_stats_tab(self):
-        """
-        Build the 'System Stats' main tab with category sub‑tabs.
-        Tooltips are set in English on both the view and the tab button.
-        NOTE: Reduced tab set (Overview, Top & Least, Trends, Heatmaps, Records).
-        Adds a small explanation at the top of the tab.
-        """
+     
         stats_tab = QWidget()
         layout = QVBoxLayout(stats_tab)
-
-        # Small explanation
         info = QLabel(
             "System Stats shows Overview, Top & Least Played, Trends, Heatmaps, and Records.\n"
             "Heatmaps display the current month; if there is no activity this month, the latest month with activity is shown automatically."
         )
         info.setStyleSheet("color:#555;margin-bottom:6px;")
         layout.addWidget(info)
-
-        # Sub-tabs (reduced set)
         self.sys_tabs = QTabWidget()
         self.sys_views = {}
 
@@ -9075,8 +7880,6 @@ class MainWindow(QMainWindow):
         add_subtab("trends", "Trends", "Weekly plays and duration trends")
         add_subtab("heat", "Heatmaps", "Monthly calendars: playtime/day and sessions/day")
         add_subtab("records", "Records", "Longest sessions, highest scores")
-
-        # Refresh row
         row = QHBoxLayout()
         self.btn_sys_refresh = QPushButton("Refresh System Stats")
         self.btn_sys_refresh.setToolTip("Reload all statistics from disk (history and sessions).")
@@ -9087,8 +7890,6 @@ class MainWindow(QMainWindow):
         layout.addLayout(row)
         layout.addWidget(self.sys_tabs)
         self.main_tabs.addTab(stats_tab, "System Stats")
-
-        # Small periodic refresher (lightweight; relies on caching)
         self.timer_sys_stats = QTimer(self)
         self.timer_sys_stats.setInterval(15000)  # 15s
         self.timer_sys_stats.timeout.connect(self._stats_refresh_now)
@@ -9105,21 +7906,8 @@ class MainWindow(QMainWindow):
 
 
     def _stats_render_heatmap(self, sessions: list) -> str:
-        """
-        Monthly calendars only:
-          - Playtime/day (target month)
-          - Sessions/day (target month)
-        Uses local system time.
 
-        Target month selection:
-          - Default: current month
-          - If there is no activity in the current month, automatically switch to the
-            month of the latest session so the calendar is never “empty”.
-        """
-        # Local timezone (system)
         tz = self._tz_for_heatmaps()
-
-        # Helper: normalize dt from a session item to naive local datetime
         def to_local_naive(dt: datetime) -> datetime:
             if dt is None:
                 return None  # type: ignore
@@ -9129,31 +7917,23 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
             return dt
-
-        # Collect all session datetimes (local-naive)
         all_dts: list[datetime] = []
         for s in sessions or []:
             dt = s.get("_dt")
             if isinstance(dt, datetime):
                 all_dts.append(to_local_naive(dt))
-
-        # Choose target month/year
         from datetime import date as _date
         import calendar
 
         now_local = datetime.now().astimezone().replace(tzinfo=None)
         target_year = now_local.year
         target_month = now_local.month
-
-        # Check if current month has any activity; if not, use latest session month
         has_current_month = any((d.year == target_year and d.month == target_month) for d in all_dts)
         if not has_current_month and all_dts:
             latest = max(all_dts)
             target_year, target_month = latest.year, latest.month
 
         month_name = datetime(target_year, target_month, 1).strftime("%B %Y")
-
-        # Aggregates per day for the target month
         from collections import defaultdict
         day_counts: dict[_date, int] = defaultdict(int)
         day_secs: dict[_date, int] = defaultdict(int)
@@ -9162,7 +7942,6 @@ class MainWindow(QMainWindow):
             dt = s.get("_dt")
             if not isinstance(dt, datetime):
                 continue
-            # normalize to local-naive
             dt_local = to_local_naive(dt)
             if dt_local.year == target_year and dt_local.month == target_month:
                 d = dt_local.date()
@@ -9171,8 +7950,6 @@ class MainWindow(QMainWindow):
                     day_secs[d] += int(s.get("duration_sec", 0) or 0)
                 except Exception:
                     pass
-
-        # Build calendar weeks (Mon..Sun)
         calendar.setfirstweekday(calendar.MONDAY)
         weeks = calendar.monthcalendar(target_year, target_month)  # 0 => out-of-month day
 
@@ -9233,14 +8010,8 @@ class MainWindow(QMainWindow):
             "sessions": {"mtimes": {}, "data": []},
             "maps": {"mtimes": {}, "index": {}},
         }
-
-# In class MainWindow: make _stats_load_features timezone-safe (normalize to naive local datetime)
     def _stats_load_features(self) -> list:
-        """
-        Load BASE/AI/history/*.features.json with simple mtime cache.
-        Each item augmented with parsed 'dt' (datetime) and 'ymd', 'wk' keys.
-        NOTE: _dt is normalized to naive local datetime to avoid aware/naive comparison issues.
-        """
+      
         try:
             cache = getattr(self, "_stats_cache", None)
             if cache is None:
@@ -9265,19 +8036,16 @@ class MainWindow(QMainWindow):
                 m = float(getattr(st, "st_mtime", 0.0))
                 if mtimes.get(p) == m:
                     continue
-                # (Re)load
                 try:
                     data = load_json(p, None)
                     if not isinstance(data, dict):
                         mtimes[p] = m
                         continue
-                    # Normalize timestamp
                     ts = data.get("ts") or data.get("updated") or ""
                     try:
                         dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
                     except Exception:
                         dt = datetime.fromtimestamp(m)
-                    # Normalize to naive local datetime to avoid aware/naive comparisons
                     try:
                         if dt.tzinfo is not None:
                             dt = dt.astimezone().replace(tzinfo=None)
@@ -9286,7 +8054,6 @@ class MainWindow(QMainWindow):
 
                     data["_dt"] = dt
                     data["_ymd"] = dt.date().isoformat()
-                    # Robust ISO calendar week (supports both tuple and namedtuple)
                     iso = dt.isocalendar()
                     try:
                         y = iso.year; w = iso.week
@@ -9308,9 +8075,7 @@ class MainWindow(QMainWindow):
 
 
     def _stats_paths(self) -> dict:
-        """
-        Centralizes folder paths used by the System Stats tab.
-        """
+       
         base = self.cfg.BASE
         return {
             "history": os.path.join(base, "AI", "history"),
@@ -9318,15 +8083,8 @@ class MainWindow(QMainWindow):
             "maps": os.path.join(base, "NVRAM_Maps", "maps"),
             "overrides": os.path.join(base, "NVRAM_Maps", "overrides"),
         }
-
-# ... in class MainWindow, replace _stats_refresh_now with this version ...
     def _stats_refresh_now(self):
-        """
-        Recompute all System Stats sub-tabs from disk (cached loads).
-        Robust: each sub-tab is rendered independently so one failure
-        does not blank all other sub-tabs.
-        """
-        # Load sources (defensive)
+       
         try:
             feats = self._stats_load_features()
         except Exception as e:
@@ -9353,21 +8111,13 @@ class MainWindow(QMainWindow):
                     log(self.cfg, f"[SYSSTATS] view not found for key '{key}'", "WARN")
             except Exception as e:
                 log(self.cfg, f"[SYSSTATS] setHtml {key} failed: {e}", "WARN")
-
-        # Render only the kept tabs
         safe_set("overview",  lambda: self._stats_render_overview(feats))
         safe_set("topleast",  lambda: self._stats_render_top_least(feats))
         safe_set("trends",    lambda: self._stats_render_trends(feats))
         safe_set("heat",      lambda: self._stats_render_heatmap(sess))
         safe_set("records",   lambda: self._stats_render_records(feats, sess))
-            
-    # In class MainWindow: also normalize _dt in sessions loader
     def _stats_load_sessions(self) -> list:
-        """
-        Load BASE/session_stats/Highlights/*.session.json with mtime cache.
-        Augment items with parsed 'dt' from 'end_timestamp' or file mtime.
-        NOTE: _dt is normalized to naive local datetime to avoid aware/naive comparison issues.
-        """
+       
         try:
             cache = getattr(self, "_stats_cache", None)
             if cache is None:
@@ -9401,7 +8151,6 @@ class MainWindow(QMainWindow):
                         dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
                     except Exception:
                         dt = datetime.fromtimestamp(m)
-                    # Normalize to naive local datetime
                     try:
                         if dt.tzinfo is not None:
                             dt = dt.astimezone().replace(tzinfo=None)
@@ -9423,10 +8172,7 @@ class MainWindow(QMainWindow):
             return []
 
     def _stats_index_maps(self) -> dict:
-        """
-        Build a small index: rom -> {'type':'base'|'override'|'auto'|'unknown'}
-        We inspect files in maps/ and overrides/; for 'auto' we check payload.generated==true.
-        """
+      
         try:
             cache = getattr(self, "_stats_cache", None)
             if cache is None:
@@ -9444,8 +8190,6 @@ class MainWindow(QMainWindow):
                 if prev in ("override",) and kind != "override":
                     return
                 idx[rom] = {"type": kind}
-
-            # Maps
             if os.path.isdir(root_maps):
                 for fn in os.listdir(root_maps):
                     if not (fn.lower().endswith(".json") or fn.lower().endswith(".map.json")):
@@ -9464,8 +8208,6 @@ class MainWindow(QMainWindow):
                         mark(rom, "auto")
                     else:
                         mark(rom, "base")
-
-            # Overrides
             if os.path.isdir(root_ovr):
                 for fn in os.listdir(root_ovr):
                     if not fn.lower().endswith(".json"):
@@ -9487,9 +8229,6 @@ class MainWindow(QMainWindow):
             return bucket.get("index", {})
         except Exception:
             return {}
-
-
-    # ---------- Helpers (formatting, math, parsing) ----------
 
     def _fmt_hms(self, seconds: int) -> str:
         try:
@@ -9528,11 +8267,7 @@ class MainWindow(QMainWindow):
         return a[k]
 
     def _extract_maker_year(self, table: str) -> tuple[str, int | None]:
-        """
-        Try to extract manufacturer and year from strings like:
-          "ATTACK FROM MARS (BALLY 1995) (VISUAL PINBALL X)"
-        Returns (maker, year_or_None).
-        """
+       
         try:
             s = str(table or "")
             m = re.search(r"\(([A-Za-z0-9&.\- ]+)\s+(\d{4})\)", s)
@@ -9547,8 +8282,6 @@ class MainWindow(QMainWindow):
             pass
         return "", None
 
-    # ---------- Renderers per category ----------
-
     def _stats_render_overview(self, feats: list) -> str:
         total_time = sum(int(f.get("duration_sec", 0) or 0) for f in feats)
         plays = len(feats)
@@ -9557,8 +8290,6 @@ class MainWindow(QMainWindow):
         durations = [int(f.get("duration_sec", 0) or 0) for f in feats]
         avg_dur = int(sum(durations) / len(durations)) if durations else 0
         med_dur = int(self._median(durations)) if durations else 0
-
-        # Recent 10 by timestamp desc
         recent = sorted(feats, key=lambda f: f.get("_dt") or datetime(1970,1,1), reverse=True)[:10]
 
         css = ("<style>"
@@ -9591,7 +8322,6 @@ class MainWindow(QMainWindow):
         return css + "<h3>Overview</h3>" + cards + "<h4>Recent activity</h4>" + recent_tbl
 
     def _stats_render_top_least(self, feats: list) -> str:
-        # Aggregate by table
         agg = defaultdict(lambda: {"plays": 0, "time": 0, "durations": []})
         for f in feats:
             key = str(f.get("table") or f.get("rom") or "").strip()
@@ -9625,7 +8355,6 @@ class MainWindow(QMainWindow):
             tbl("Least Played by Time (> 0)", least_time)
 
     def _stats_render_trends(self, feats: list) -> str:
-        # Weekly buckets
         per_week = defaultdict(lambda: {"plays": 0, "time": 0, "dur": []})
         for f in feats:
             wk = str(f.get("_week") or "")
@@ -9635,7 +8364,6 @@ class MainWindow(QMainWindow):
             per_week[wk]["dur"].append(d)
 
         weeks = sorted(per_week.keys())
-        # Keep latest 12 weeks for the table
         if len(weeks) > 12:
             weeks = weeks[-12:]
 
@@ -9646,8 +8374,6 @@ class MainWindow(QMainWindow):
             meta = per_week[wk]
             avg = int(sum(meta["dur"])/len(meta["dur"])) if meta["dur"] else 0
             rows.append(f"<tr><td>{wk}</td><td align='right'>{self._fmt_int(meta['plays'])}</td><td align='right'>{self._fmt_hms(meta['time'])}</td><td align='right'>{self._fmt_hms(avg)}</td></tr>")
-
-        # Trending ROMs last 30d vs previous 30d
         now = datetime.now()
         d30 = now - timedelta(days=30)
         d60 = now - timedelta(days=60)
@@ -9682,7 +8408,6 @@ class MainWindow(QMainWindow):
 
 
     def _stats_render_kpis(self, feats: list) -> str:
-        # Collect per-minute KPIs
         def val(f, key):
             try: return float(f.get(key, 0) or 0)
             except Exception: return 0.0
@@ -9699,8 +8424,6 @@ class MainWindow(QMainWindow):
             p50 = self._percentile(arr, 50)
             p90 = self._percentile(arr, 90)
             return f"<tr><td>{title}</td><td align='right'>{p50:.2f}</td><td align='right'>{p90:.2f}</td></tr>"
-
-        # Top 10 sessions by score/min
         top_spm = sorted(feats, key=lambda f: f.get("score_per_min", 0) or 0, reverse=True)[:10]
 
         css = ("<style>table{border-collapse:collapse;width:100%}"
@@ -9728,7 +8451,6 @@ class MainWindow(QMainWindow):
                "<h4>Top 10 sessions by Score/min</h4><table>" + head2 + "".join(body2) + "</table>"
                
     def _stats_render_profiles(self, feats: list, sess: list) -> str:
-        # Aggregate per ROM
         rom_agg = defaultdict(lambda: {"time": 0, "plays": 0, "dur": [], "scores": [], "spm": []})
         for f in feats:
             rom = str(f.get("rom") or f.get("table") or "").strip()
@@ -9741,8 +8463,6 @@ class MainWindow(QMainWindow):
                 rom_agg[rom]["scores"].append(int(f.get("score", 0) or 0))
             if isinstance(f.get("score_per_min", None), (int, float)):
                 rom_agg[rom]["spm"].append(float(f.get("score_per_min", 0) or 0))
-
-        # Event efficiency from sessions (global_deltas)
         eff = defaultdict(lambda: {"jackpots": 0, "multiball": 0, "modes_started": 0, "modes_completed": 0})
         for s in sess:
             rom = str(s.get("rom") or "").strip()
@@ -9756,8 +8476,6 @@ class MainWindow(QMainWindow):
             eff[rom]["multiball"] += gi("Total Multiballs")
             eff[rom]["modes_started"] += gi("Modes Started")
             eff[rom]["modes_completed"] += gi("Modes Completed")
-
-        # Build rows sorted by total playtime desc
         items = []
         for rom, a in rom_agg.items():
             avg = int(sum(a["dur"])/len(a["dur"])) if a["dur"] else 0
@@ -9812,7 +8530,6 @@ class MainWindow(QMainWindow):
                 solo += 1
                 continue
             multi += 1
-            # P1 win by end_audits scores
             end = s.get("end_audits", {}) or {}
             def gi(k):
                 try: return int(end.get(k, 0) or 0)
@@ -9839,7 +8556,6 @@ class MainWindow(QMainWindow):
         return css + "<h4>Multiplayer summary</h4><table>" + "".join(rows) + "</table>"
 
     def _stats_render_map_whitelist(self, sess: list, maps_index: dict) -> str:
-        # Avg whitelist size per ROM
         wl = defaultdict(lambda: {"sum": 0, "n": 0})
         for s in sess:
             rom = str(s.get("rom") or "").strip()
@@ -9854,7 +8570,6 @@ class MainWindow(QMainWindow):
             avg = (meta["sum"]/meta["n"]) if meta["n"]>0 else 0.0
             mtype = (maps_index.get(rom, {}) or {}).get("type", "unknown")
             items.append((rom, meta["n"], avg, mtype))
-        # Sort: most sessions, then avg wl size desc
         items.sort(key=lambda t: (-t[1], -t[2], t[0].lower()))
 
         css = ("<style>table{border-collapse:collapse;width:100%}"
@@ -9867,14 +8582,10 @@ class MainWindow(QMainWindow):
         return css + "<h4>Map provenance & whitelist quality</h4><table>" + head + body + "</table>"
 
     def _stats_render_records(self, feats: list, sess: list) -> str:
-        # Longest sessions
         longest = sorted(feats, key=lambda f: int(f.get("duration_sec", 0) or 0), reverse=True)[:10]
-        # Highest scores (globally)
         hi_scores = [f for f in feats if isinstance(f.get("score", None), (int, float))]
         hi_scores.sort(key=lambda f: int(f.get("score", 0) or 0), reverse=True)
         hi_scores = hi_scores[:10]
-
-        # Best ball (from features if present, fall back to sessions)
         best_balls = []
         for f in feats:
             bb = f.get("best_ball")
@@ -9884,10 +8595,8 @@ class MainWindow(QMainWindow):
             for s in sess:
                 bb = s.get("best_ball")
                 if isinstance(bb, dict):
-                    # make a feature-like shell
                     f = {"_dt": s.get("_dt"), "table": s.get("table"), "rom": s.get("rom")}
                     best_balls.append((f, bb))
-        # sort by score then duration
         best_balls.sort(key=lambda t: (int(t[1].get("score", 0) or 0), int(t[1].get("duration", 0) or 0)), reverse=True)
         best_balls = best_balls[:10]
 
@@ -9896,24 +8605,18 @@ class MainWindow(QMainWindow):
 
         def tbl(title, head, rows):
             return f"<h4>{title}</h4><table>{head}{''.join(rows)}</table>"
-
-        # Longest
         head1 = "<tr><th align='left'>When</th><th align='left'>Table</th><th align='right'>Duration</th></tr>"
         rows1 = []
         for f in longest:
             dt = f.get("_dt"); when = dt.strftime("%Y-%m-%d %H:%M") if isinstance(dt, datetime) else "-"
             table = str(f.get("table","") or f.get("rom","")).strip()
             rows1.append(f"<tr><td>{when}</td><td>{table}</td><td align='right'>{self._fmt_hms(int(f.get('duration_sec',0) or 0))}</td></tr>")
-
-        # Highest scores
         head2 = "<tr><th align='left'>When</th><th align='left'>Table</th><th align='right'>Score</th></tr>"
         rows2 = []
         for f in hi_scores:
             dt = f.get("_dt"); when = dt.strftime("%Y-%m-%d %H:%M") if isinstance(dt, datetime) else "-"
             table = str(f.get("table","") or f.get("rom","")).strip()
             rows2.append(f"<tr><td>{when}</td><td>{table}</td><td align='right'>{self._fmt_int(int(f.get('score',0) or 0))}</td></tr>")
-
-        # Best Ball
         head3 = "<tr><th align='left'>When</th><th align='left'>Table</th><th align='right'>Ball #</th><th align='right'>Score</th><th align='right'>Duration</th></tr>"
         rows3 = []
         for f, bb in best_balls:
@@ -9953,7 +8656,6 @@ class MainWindow(QMainWindow):
         return css + tbl("Manufacturer (Top 20 by playtime)", makers) + tbl("Decade", decades)
 
     def _stats_render_misc(self, feats: list) -> str:
-        # Sessions/day last 90 days
         now = datetime.now()
         d90 = now - timedelta(days=90)
         per_day = defaultdict(int)
@@ -9964,16 +8666,12 @@ class MainWindow(QMainWindow):
             if dt >= d90:
                 per_day[dt.date().isoformat()] += 1
         days = sorted(per_day.items(), key=lambda kv: kv[0])  # asc by date
-
-        # Avg sessions per table
         by_table = defaultdict(int)
         for f in feats:
             key = str(f.get("table") or f.get("rom") or "").strip()
             if key:
                 by_table[key] += 1
         avg_per_table = (sum(by_table.values())/len(by_table)) if by_table else 0.0
-
-        # Highest median duration tables (top 10, min 3 plays)
         dur_by_table = defaultdict(list)
         for f in feats:
             key = str(f.get("table") or f.get("rom") or "").strip()
@@ -9988,12 +8686,8 @@ class MainWindow(QMainWindow):
 
         css = ("<style>table{border-collapse:collapse;width:100%}"
                "th,td{padding:6px 8px;border-bottom:1px solid #e5e5e5;white-space:nowrap}</style>")
-
-        # Sessions/day (compact table)
         head1 = "<tr><th align='left'>Date</th><th align='right'>Sessions</th></tr>"
         rows1 = "".join([f"<tr><td>{d}</td><td align='right'>{self._fmt_int(n)}</td></tr>" for d, n in days[-30:]])
-
-        # Highest median duration
         head2 = "<tr><th align='left'>Table</th><th align='right'>Median</th><th align='right'>Plays</th></tr>"
         rows2 = "".join([f"<tr><td>{k}</td><td align='right'>{self._fmt_hms(int(m))}</td><td align='right'>{self._fmt_int(n)}</td></tr>" for k, m, n in med_items])
 
@@ -10011,19 +8705,16 @@ class MainWindow(QMainWindow):
 
     def quit_all(self):
         self.cfg.save()
-        # Tray zuerst verstecken, damit closeEvent NICHT in "hide to tray" fällt
         try:
             if self.tray:
                 self.tray.hide()
         except Exception:
             pass
-        # Watcher explicit stoppen (inkl. Injector-Kill)
         try:
             if getattr(self, "watcher", None):
                 self.watcher.stop()
         except Exception:
             pass
-        # GUI schließen und App beenden
         try:
             self.close()
         except Exception:
@@ -10037,9 +8728,7 @@ class MainWindow(QMainWindow):
 
 
     def _prefetch_maps_now(self):
-        """
-        Start prefetch in the background and show the dynamic target path (BASE\\NVRAM_Maps\\maps).
-        """
+       
         try:
             self.watcher.start_prefetch_background()
             maps_dir = os.path.join(self.cfg.BASE, "NVRAM_Maps", "maps")
@@ -10053,9 +8742,6 @@ class MainWindow(QMainWindow):
         except Exception as e:
             log(self.cfg, f"[PREFETCH] failed: {e}", "ERROR")
             QMessageBox.warning(self, "Prefetch", f"Prefetch failed:\n{e}")
-  
-          
-    # --- Theme / Tooltips ---
     def _style(self, widget, css: str):
         try:
             if widget:
@@ -10077,21 +8763,16 @@ class MainWindow(QMainWindow):
         p.setColor(p.ColorRole.HighlightedText, QColor("#ffffff"))
         app.setPalette(p)
         app.setFont(QFont("Segoe UI", 10))
-
-        # Buttons
         self._style(getattr(self, "btn_minimize", None),
                     "background:#0078d7;color:white;border-radius:6px;padding:6px 12px;")
         self._style(getattr(self, "btn_quit", None),
                     "background:#7a7a7a;color:white;border-radius:6px;padding:6px 12px;")
         self._style(getattr(self, "btn_restart", None),
                     "background:#00cc6a;color:white;border-radius:6px;padding:6px 12px;")
-
-        # SICHER: Icon überall setzen (Fenster + Tray) – bevorzugt watcher.ico
         try:
             icon = self._get_icon()
             self.setWindowIcon(icon)
             if getattr(self, "tray", None):
-                # explizit setzen, auch wenn bereits im Konstruktor übergeben
                 self.tray.setIcon(icon)
         except Exception:
             pass
@@ -10106,10 +8787,7 @@ class MainWindow(QMainWindow):
         apply_tooltips(self, tips)
 
     def _init_overlay_tooltips(self):
-        """
-        Sets tooltips for controls in the Overlay tab.
-        All text in English.
-        """
+      
         tips = {
             "chk_portrait": "Rotate and render the overlay in portrait (90° CCW).",
             "sld_scale": "Overall scaling factor of the overlay window (percent).",
@@ -10136,13 +8814,7 @@ class MainWindow(QMainWindow):
         apply_tooltips(self, tips)
  
     def _build_achievements_tab(self):
-        """
-        Create the main 'Achievements' tab with two subtabs:
-          - 'Global-NVRAM': per ROM, only achievements from global_achievements.json
-          - 'PL-Achievements': per ROM, all persisted session achievements (ROM-specific/custom)
-        Tooltips are in English.
-        """
-        # Ensure we have the main tab widget
+     
         if not hasattr(self, "main_tabs") or self.main_tabs is None:
             return
 
@@ -10152,8 +8824,6 @@ class MainWindow(QMainWindow):
         self.ach_tabs = QTabWidget()
         self.ach_view_global = QTextBrowser()
         self.ach_view_pl = QTextBrowser()
-
-        # Tooltips in English
         self.ach_tabs.setToolTip("Shows unlocked achievements across all ROMs.")
         self.ach_view_global.setToolTip("Global achievements unlocked from global_achievements.json (per ROM, one-time).")
         self.ach_view_pl.setToolTip("Player-level session achievements (ROM-specific/custom), recorded only from 1-player sessions.")
@@ -10162,23 +8832,14 @@ class MainWindow(QMainWindow):
         self.ach_tabs.addTab(self.ach_view_pl, "PL-Achievements")
         ach_layout.addWidget(self.ach_tabs)
         ach_tab.setLayout(ach_layout)
-
-        # Add as a top-level tab
         self.main_tabs.addTab(ach_tab, "Achievements")
-
-        # Initial fill
         try:
             self.update_achievements_tab()
         except Exception:
             pass
 
     def update_achievements_tab(self):
-        """
-        Build HTML for:
-          - Global-NVRAM: per ROM only achievements with origin='global_achievements'
-          - PL-Achievements: per ROM all session achievements (1-player only, persisted)
-        Renders one column per ROM from left to right.
-        """
+        
         state = load_json(f_achievements_state(self.cfg), {}) or {}
         global_map = state.get("global", {}) or {}
         session_map = state.get("session", {}) or {}
@@ -10218,15 +8879,11 @@ class MainWindow(QMainWindow):
                 f"<td valign='top' style='padding:0 14px;'>{c}</td>" for c in cols
             ) + "</tr></table>"
             return html
-
-        # Global-NVRAM (only origin=global_achievements)
         try:
             html_g = build_columns_html(global_map, filter_origin_ga_only=True)
             self.ach_view_global.setHtml(html_g)
         except Exception:
             pass
-
-        # PL-Achievements (all session unlocks)
         try:
             html_pl = build_columns_html(session_map, filter_origin_ga_only=False)
             self.ach_view_pl.setHtml(html_pl)
@@ -10234,9 +8891,7 @@ class MainWindow(QMainWindow):
             pass
 
     def _init_achievements_timer(self):
-        """
-        Set up a small timer to refresh the Achievements tab periodically.
-        """
+        
         try:
             self.timer_achievements = QTimer(self)
             self.timer_achievements.setInterval(5000)  # 5 seconds
@@ -10247,10 +8902,7 @@ class MainWindow(QMainWindow):
  
  
     def _get_icon(self) -> QIcon:
-        """
-        Use ONLY 'watcher.ico' shipped with the app (bundle or next to the EXE).
-        """
-        # 1) Bundle (PyInstaller) – resource_path
+       
         try:
             p = resource_path("watcher.ico")
             if os.path.isfile(p):
@@ -10259,8 +8911,6 @@ class MainWindow(QMainWindow):
                     return ic
         except Exception:
             pass
-
-        # 2) Neben der EXE (Dev/Portable)
         try:
             p2 = os.path.join(APP_DIR, "watcher.ico")
             if os.path.isfile(p2):
@@ -10269,8 +8919,6 @@ class MainWindow(QMainWindow):
                     return ic
         except Exception:
             pass
-
-        # 3) Minimaler Fallback (sollte nicht eintreten, wenn watcher.ico korrekt mitgeliefert ist)
         pm = QPixmap(32, 32)
         pm.fill(Qt.GlobalColor.transparent)
         try:
@@ -10301,9 +8949,7 @@ class MainWindow(QMainWindow):
         self.raise_()
 
     def closeEvent(self, event):
-        """
-        Clean shutdown: save config, uninstall keyboard hook, unregister WM_HOTKEY, stop watcher thread.
-        """
+      
         self.cfg.save()
         try:
             if getattr(self, "tray", None) and self.tray and self.tray.isVisible():
@@ -10347,8 +8993,6 @@ class MainWindow(QMainWindow):
             self.cfg.TABLES_DIR = d
             self.tables_label.setText(f"TABLES (optional): {d}")
             self.cfg.save()
-
-    # --- Logs / Stats ---
     def _latest_log_path(self) -> Optional[str]:
         watcher_path = f_log(self.cfg)
         cands = []
@@ -10364,7 +9008,6 @@ class MainWindow(QMainWindow):
         if not latest:
             return
         try:
-            # Scroll-Position merken (proportional)
             v = self.log_view.verticalScrollBar()
             old_val = v.value()
             old_max = max(1, v.maximum())
@@ -10375,8 +9018,6 @@ class MainWindow(QMainWindow):
                 content = f.read()
 
             self.log_view.setPlainText(content)
-
-            # Scroll-Position wiederherstellen
             new_max = max(1, v.maximum())
             if at_bottom_before:
                 v.setValue(v.maximum())
@@ -10443,8 +9084,6 @@ class MainWindow(QMainWindow):
                 continue
 
             st = stripped.strip()
-
-            # Section header?
             if st.endswith(":"):
                 tag = st[:-1].strip()
                 flush()
@@ -10459,8 +9098,6 @@ class MainWindow(QMainWindow):
 
             if skip_section:
                 continue
-
-            # Parse rows
             parts = st.split()
             if len(parts) >= 2:
                 key = " ".join(parts[:-1])
@@ -10474,9 +9111,7 @@ class MainWindow(QMainWindow):
 
 
     def _read_latest_session_txt(self) -> str:
-        """
-        Reads the latest *.txt from BASE\\session_stats or returns "".
-        """
+       
         stats_dir = os.path.join(self.cfg.BASE, "session_stats")
         if not os.path.isdir(stats_dir):
             return ""
@@ -10513,10 +9148,7 @@ class MainWindow(QMainWindow):
 
 
     def _build_global_html_nonzero(self, content: str) -> str:
-        """
-        Build HTML for Global Snapshot (page body) without achievements.
-        UPDATED: Only render 'Audits (filtered)' non-zero rows.
-        """
+   
         if not content:
             return "<div>(no data)</div>"
 
@@ -10579,10 +9211,7 @@ class MainWindow(QMainWindow):
         return "".join(parts)
 
     def _parse_player_snapshot(self, content: str, pid: int) -> dict:
-        """
-        Parse '=== Player X Snapshot ===' block into:
-          { 'playtime': str, 'achievements': [str], 'deltas': List[Tuple[label, val]] }
-        """
+    
         out = {"playtime": "", "achievements": [], "deltas": []}
         if not content:
             return out
@@ -10614,8 +9243,6 @@ class MainWindow(QMainWindow):
                 in_achs = (t == "session achievements")
                 in_deltas = (t == "session deltas")
                 continue
-
-            # ACHTUNG: auf s (mit führenden Spaces) prüfen, nicht auf st
             if in_achs and st:
                 if (s.startswith("  ") or s.startswith("\t")):
                     out["achievements"].append(st)
@@ -10623,7 +9250,6 @@ class MainWindow(QMainWindow):
 
             if in_deltas and st:
                 if (s.startswith("  ") or s.startswith("\t")):
-                    # lines like "  Ramps Made              12"
                     parts = st.split()
                     if len(parts) >= 2:
                         key = " ".join(parts[:-1])
@@ -10639,10 +9265,7 @@ class MainWindow(QMainWindow):
         return out
 
     def _build_player_snapshots_html(self, content: str) -> str:
-        """
-        Structured columns for P1–P4 and optional CPU.
-        UPDATED: No 'Session Achievements' rendering – only Playtime and Session Deltas.
-        """
+       
         payloads = read_active_players(self.cfg.BASE) or []
 
         part_ids = set()
@@ -10737,8 +9360,6 @@ class MainWindow(QMainWindow):
         for pid in sorted(part_ids):
             d = parse_player(pid)
             cols.append(col_html(f"P{pid}", pcolor(pid), d.get("playtime", ""), d.get("deltas", [])))
-
-        # Optional CPU column (no achievements)
         try:
             sim = getattr(self.watcher, "cpu", {}) or {}
             if bool(sim.get("active", False)):
@@ -10776,22 +9397,14 @@ class MainWindow(QMainWindow):
 
 
     def update_stats(self):
-        """
-        Aktualisiert die Inhalte des 'Stats'-Reiters:
-          - Global/Spieler 1..4 aus der neuesten Session-Textdatei (Scrollposition behalten)
-          - CPU-Sim live aus watcher.cpu (Scrollposition behalten)
-        """
+      
         stats_dir = os.path.join(self.cfg.BASE, "session_stats")
-
-        # CPU-Tab immer live aktualisieren (auch wenn keine Session-TXTs existieren)
         if not os.path.isdir(stats_dir):
             try:
                 self._update_cpu_stats_tab()
             except Exception:
                 pass
             return
-
-        # Letzte Session-Textdatei laden
         try:
             txt_files = [os.path.join(stats_dir, fn) for fn in os.listdir(stats_dir)
                          if fn.lower().endswith(".txt")]
@@ -10803,8 +9416,6 @@ class MainWindow(QMainWindow):
                 content = ""
         except Exception:
             content = ""
-
-        # Hilfsfunktion: HTML setzen und Scrollposition bewahren
         def _set_html_preserve_scroll(browser: QTextBrowser, html: str):
             try:
                 sb = browser.verticalScrollBar()
@@ -10826,16 +9437,12 @@ class MainWindow(QMainWindow):
                     browser.setHtml(html)
                 except Exception:
                     pass
-
-        # Global-Block
         try:
             if "global" in self.stats_views:
                 html = self._extract_block(content, "Global Snapshot")
                 _set_html_preserve_scroll(self.stats_views["global"], html)
         except Exception:
             pass
-
-        # Spieler 1..4
         for i in range(1, 5):
             try:
                 if i in self.stats_views:
@@ -10843,14 +9450,10 @@ class MainWindow(QMainWindow):
                     _set_html_preserve_scroll(self.stats_views[i], html)
             except Exception:
                 pass
-
-        # CPU-Sim live anzeigen
         try:
             self._update_cpu_stats_tab()
         except Exception:
             pass
-
-        # AI Evaluation Tab ebenfalls refreshen
         try:
             self.update_ai_evaluation_tab()
         except Exception:
@@ -10860,10 +9463,7 @@ class MainWindow(QMainWindow):
 
 
     def _refresh_overlay_live(self):
-        """
-        Refresh overlay during live mode.
-        UPDATED: Remove achievements from combined players payload.
-        """
+       
         if not bool(self.cfg.OVERLAY.get("live_updates", False)):
             return
         if not self.overlay or not self.overlay.isVisible():
@@ -10929,9 +9529,7 @@ class MainWindow(QMainWindow):
         return False
 
     def _build_global_section(self) -> dict | None:
-        """
-        Aggregiert globale Events aus der Summary und baut einen 'Global'-Block (wie ein Reiter).
-        """
+      
         try:
             s = self.watcher._ai_read_latest_summary()  # nutzt Watcher-Helper
             if not s:
@@ -10944,7 +9542,6 @@ class MainWindow(QMainWindow):
             duration_sec = int(s.get("duration_sec", 0) or 0)
             pseudo_stats = {"score": score_final, "duration_sec": duration_sec, "events": events_totals}
             highlights = self.watcher.analyze_session(pseudo_stats) or {}
-            # nur aufnehmen, wenn irgendwas drin ist
             nonempty = any(highlights.get(k) for k in ("Power", "Precision", "Fun")) or score_final > 0
             if not nonempty:
                 return None
@@ -10962,10 +9559,7 @@ class MainWindow(QMainWindow):
 
 
     def _prepare_overlay_sections(self):
-        """
-        Build cycle pages (Active Player Highlights, Global Snapshot, Player Snapshots).
-        UPDATED: strip achievements from all overlay sections.
-        """
+       
         def _played_entry(p: dict) -> bool:
             try:
                 if int(p.get("playtime_sec", 0) or 0) > 0:
@@ -10981,8 +9575,6 @@ class MainWindow(QMainWindow):
             return any(h.get(cat) for cat in ("Power", "Precision", "Fun"))
 
         sections = []
-
-        # 1) Combined multi-column highlights (players + optional CPU)
         players_raw = read_active_players(self.cfg.BASE)
         combined_players = []
         if players_raw:
@@ -10995,8 +9587,6 @@ class MainWindow(QMainWindow):
                     "playtime_sec": p.get("playtime_sec", 0),
                     "score": int(p.get("score", 0) or 0),
                 })
-
-        # CPU optional
         try:
             sim = getattr(self.watcher, "cpu", {}) or {}
             if bool(sim.get("active", False)):
@@ -11031,8 +9621,6 @@ class MainWindow(QMainWindow):
             })
 
         content = self._read_latest_session_txt()
-
-        # 2) Global Snapshot (no achievements)
         if content:
             html_global = self._build_global_html_nonzero(content)
             sections.append({
@@ -11040,8 +9628,6 @@ class MainWindow(QMainWindow):
                 "html": html_global,
                 "title": "Global Snapshot"
             })
-
-        # 3) Player Snapshots (no achievements)
         if content:
             html_players = self._build_player_snapshots_html(content)
             sections.append({
@@ -11055,12 +9641,7 @@ class MainWindow(QMainWindow):
 
 
     def _show_overlay_section(self, payload: dict):
-        """
-        Show exactly one cycle page:
-          - kind=combined_players → multi-column highlights
-          - kind=html            → render provided HTML page
-          - default              → single player highlight block (fallback; hier nicht genutzt)
-        """
+    
         self._ensure_overlay()
         kind = str(payload.get("kind", "")).lower()
         title = str(payload.get("title", "") or "").strip()
@@ -11073,12 +9654,9 @@ class MainWindow(QMainWindow):
 
         if kind == "html":
             html = payload.get("html", "") or "<div>-</div>"
-            # WICHTIG: keinen Fallback 'Highlights' erzwingen, damit der gewünschte Titel angezeigt wird
             self.overlay.set_html(html, session_title=title)
             self.overlay.show(); self.overlay.raise_()
             return
-
-        # Fallback (sollte im 3-Seiten-Flow nicht auftreten)
         combined = {"players": [payload]}
         title2 = f"Highlights – {payload.get('title','')}".strip()
         self.overlay.set_combined(combined, session_title=title2)
@@ -11086,20 +9664,13 @@ class MainWindow(QMainWindow):
 
 
     def _cycle_overlay_button(self):
-        """
-        Toggle/cycle pages:
-          - If closed: prepare sections and show first page.
-          - If open: advance to next page; close at end.
-
-        CHANGE: Allow toggling even while a game is active.
-        """
+    
         if getattr(self, "_overlay_busy", False):
             return
         self._overlay_busy = True
         try:
             ov = getattr(self, "overlay", None)
             if not ov or not ov.isVisible():
-                # Prepare and start at page 0
                 self._prepare_overlay_sections()
                 secs = self._overlay_cycle.get("sections", [])
                 if not secs:
@@ -11135,10 +9706,7 @@ class MainWindow(QMainWindow):
 
 
     def update_ai_evaluation_tab(self):
-        """
-        Build English HTML from BASE/AI/global.coach.json and BASE/AI/profile.json.
-        Coach table WITHOUT the 'Tip' column.
-        """
+     
         if not hasattr(self, "ai_view"):
             return
 
@@ -11153,8 +9721,6 @@ class MainWindow(QMainWindow):
                 profile = load_json(os.path.join(self.cfg.BASE, "AI", "profile.json"), {}) or {}
             except Exception:
                 profile = {}
-
-            # Preserve scroll
             sb = self.ai_view.verticalScrollBar()
             old_val = sb.value(); old_max = max(1, sb.maximum())
             at_bottom_before = (old_val >= old_max - 2)
@@ -11171,8 +9737,6 @@ class MainWindow(QMainWindow):
                         "h4{margin:8px 0 4px 0;border-bottom:1px solid #ccc}"
                         ".muted{color:#777}"
                         "</style>")
-
-            # Coach tips (NO tip column)
             html.append("<h3>AI Coach – Top Events</h3>")
             te = coach.get("top_events", []) or []
             if te:
@@ -11191,8 +9755,6 @@ class MainWindow(QMainWindow):
                     html.append(f"<div class='muted'>Updated: {esc(upd)}</div>")
             else:
                 html.append("<div>(No coach data yet)</div>")
-
-            # Profile (unverändert, nur Anzeige)
             html.append("<h3>Skill Profile</h3>")
             if profile:
                 style = profile.get("style", {}) or {}
@@ -11246,8 +9808,6 @@ class MainWindow(QMainWindow):
                 html.append("<div>(No profile data yet)</div>")
 
             self.ai_view.setHtml("".join(html))
-
-            # Scroll back
             new_max = max(1, sb.maximum())
             if at_bottom_before:
                 sb.setValue(sb.maximum())
@@ -11255,20 +9815,12 @@ class MainWindow(QMainWindow):
                 new_val = int(round(ratio * new_max))
                 sb.setValue(max(0, min(new_val, new_max)))
         except Exception:
-            # no crash
             pass
-
-    # ===== Challenges: TTS (best-effort via SAPI) and bridge handlers =====
     def _speak_en(self, text: str):
-        """
-        Speak a short English phrase using SAPI if available (best-effort).
-        Volume from cfg.OVERLAY['challenges_voice_volume'] (0..100).
-        Non-blocking; silently ignores errors.
-        """
+     
         try:
             vol = int(self.cfg.OVERLAY.get("challenges_voice_volume", 80))
             vol = max(0, min(100, vol))
-            # SAPI via win32com (if available)
             try:
                 import win32com.client  # type: ignore
                 sp = win32com.client.Dispatch("SAPI.SpVoice")
@@ -11277,18 +9829,13 @@ class MainWindow(QMainWindow):
                 return
             except Exception:
                 pass
-            # Fallback: no-op if SAPI unavailable
         except Exception:
             pass
-
-    # In class MainWindow (ersetzen)
     def _on_challenge_warmup_show(self, seconds: int, message: str):
         try:
             if not hasattr(self, "_mini_overlay") or self._mini_overlay is None:
                 self._mini_overlay = MiniInfoOverlay(self)
             self._mini_overlay.show_info(str(message), max(1, int(seconds)), color_hex="#FF3B30")
-
-            # Sprachausgabe nur einmal, nachdem das Overlay angezeigt wurde
             if not hasattr(self, "_ch_last_spoken"):
                 self._ch_last_spoken = {}
             now = time.time()
@@ -11300,9 +9847,7 @@ class MainWindow(QMainWindow):
             pass
 
     def _on_challenge_timer_stop(self):
-        """
-        Stop the countdown overlay and any pending delayed start.
-        """
+      
         try:
             if hasattr(self, "_challenge_timer_delay") and self._challenge_timer_delay:
                 self._challenge_timer_delay.stop()
@@ -11332,15 +9877,10 @@ class MainWindow(QMainWindow):
 
 
     def _update_cpu_stats_tab(self):
-        """
-        Build HTML for the 'CPU Sim' sub-tab from watcher.cpu (session deltas, play time, difficulty).
-        English UI strings. Shows whether a game is active.
-        """
+       
         if "cpu" not in self.stats_views:
             return
         view = self.stats_views["cpu"]
-
-        # Scroll-Position vorher merken
         try:
             sb = view.verticalScrollBar()
             old_val = sb.value()
@@ -11354,14 +9894,11 @@ class MainWindow(QMainWindow):
 
         sim = getattr(self.watcher, "cpu", {}) or {}
         active = bool(sim.get("active"))
-        # Schwierigkeit aus Watcher, sonst Config
         diff = str(sim.get("difficulty", self.cfg.OVERLAY.get("cpu_sim_difficulty", "mittel"))).lower()
         play = int(sim.get("active_play_seconds", 0.0) or 0)
         score = int(sim.get("score", 0) or 0)
         rows = []
         deltas = sim.get("session_deltas", {}) or {}
-
-        # Sort: value desc, then label
         try:
             sorted_items = sorted(deltas.items(), key=lambda kv: (-int(kv[1] or 0), str(kv[0]).lower()))
         except Exception:
@@ -11399,8 +9936,6 @@ class MainWindow(QMainWindow):
         else:
             hint = "(No deltas – start a ROM and enable CPU Sim)" if not self.watcher.game_active else "(No deltas yet)"
             html = "\n".join(head) + f"<p>{hint}</p>"
-
-        # HTML setzen und Scroll-Position wiederherstellen
         try:
             view.setHtml(html)
             if sb is not None:
@@ -11414,10 +9949,7 @@ class MainWindow(QMainWindow):
             pass
 
     def _cpu_diff_label(self) -> str:
-        """
-        Button label for the difficulty switch (English).
-        Bevorzugt Config-Wert, falls Watcher noch nicht initialisiert ist.
-        """
+      
         try:
             cur = str((self.watcher.cpu or {}).get(
                 "difficulty",
@@ -11425,17 +9957,13 @@ class MainWindow(QMainWindow):
             )).lower()
         except Exception:
             cur = str(self.cfg.OVERLAY.get("cpu_sim_difficulty", "mittel")).lower()
-        # auch englische Synonyme robust abfangen
         syn = {"easy": "leicht", "medium": "mittel", "difficult": "schwer", "hard": "schwer", "pro": "pro"}
         cur = syn.get(cur, cur)
         mapping = {"leicht": "Easy", "mittel": "Medium", "schwer": "Hard", "pro": "Pro"}
         return f"CPU difficulty: {mapping.get(cur, 'Medium')} (click to cycle)"
 
     def _on_cpu_cycle_difficulty(self):
-        """
-        Button-Handler: Schwierigkeit zyklisch umschalten:
-          leicht -> mittel -> schwer -> pro -> leicht ...
-        """
+     
         order = ["leicht", "mittel", "schwer", "pro"]
         try:
             cur = str((self.watcher.cpu or {}).get("difficulty", "mittel")).lower()
@@ -11456,17 +9984,12 @@ class MainWindow(QMainWindow):
             pass
 
     def _on_cpu_active_changed(self, state: int):
-        """
-        Checkbox-Handler: CPU-Simulation aktivieren/deaktivieren.
-        """
+       
         active = (Qt.CheckState(state) == Qt.CheckState.Checked)
         try:
             self.watcher.set_cpu_sim_active(active)
         except Exception:
             pass
-
-
-    # --- Overlay control ---
     def _ensure_overlay(self):
         if self.overlay is None:
             self.overlay = OverlayWindow(self)
@@ -11476,21 +9999,13 @@ class MainWindow(QMainWindow):
         self.overlay.request_rotation(force=True)
 
     def _on_auto_show_toggle(self, state: int):
-        """
-        Checkbox handler: enable/disable automatic overlay show after VPX closes.
-        """
+     
         self.cfg.OVERLAY["auto_show_on_end"] = (Qt.CheckState(state) == Qt.CheckState.Checked)
         self.cfg.save()
 
     def _show_overlay_latest(self):
-        """
-        After session end: open the normal overlay with the 3-page cycle:
-          1) Active Player Highlights
-          2) Global Snapshot
-          3) Player Snapshots
-        """
+    
         try:
-            # Prepare pages from the latest data and show page 0
             self._prepare_overlay_sections()
             secs = self._overlay_cycle.get("sections", [])
             if not secs:
@@ -11502,10 +10017,7 @@ class MainWindow(QMainWindow):
             pass
 
     def _on_mini_info_show(self, rom: str, seconds: int = 7):
-        """
-        Show the small info overlay centered on the primary monitor,
-        with a countdown. Auto-closes after countdown finishes.
-        """
+      
         try:
             if not hasattr(self, "_mini_overlay") or self._mini_overlay is None:
                 self._mini_overlay = MiniInfoOverlay(self)
@@ -11515,10 +10027,7 @@ class MainWindow(QMainWindow):
             pass
 
     def _on_ach_toast_show(self, title: str, rom: str, seconds: int = 5):
-        """
-        Receive achievement toast requests (from Watcher via Bridge)
-        and enqueue them for sequential display (5s each).
-        """
+     
         try:
             self._ach_toast_mgr.enqueue(title, rom, max(1, int(seconds)))
         except Exception:
@@ -11526,14 +10035,9 @@ class MainWindow(QMainWindow):
 
 
     def _compute_overlay_anchor(self) -> tuple[int, int]:
-        """
-        Compute the anchor point (center) derived from how the main overlay is placed:
-        - If use_xy: use (pos_x, pos_y) directly as center.
-        - Else: reproduce OverlayWindow's auto placement and take the geometric center.
-        """
+     
         try:
             ov = self.cfg.OVERLAY or {}
-            # Reference virtual geometry (union of screens)
             screens = QApplication.screens() or []
             if screens:
                 vgeo = screens[0].geometry()
@@ -11544,8 +10048,6 @@ class MainWindow(QMainWindow):
 
             if ov.get("use_xy", False):
                 return int(ov.get("pos_x", 100)), int(ov.get("pos_y", 100))
-
-            # Approximate big overlay size like OverlayWindow._apply_geometry
             portrait_mode = bool(ov.get("portrait_mode", True))
             scale_pct = int(ov.get("scale_pct", 100))
             if portrait_mode:
@@ -11575,7 +10077,6 @@ class MainWindow(QMainWindow):
             cy = y + h // 2
             return int(cx), int(cy)
         except Exception:
-            # Fallback roughly center of primary screen
             try:
                 scr = QApplication.primaryScreen()
                 geo = scr.geometry() if scr else QRect(0, 0, 1280, 720)
@@ -11589,55 +10090,34 @@ class MainWindow(QMainWindow):
 
 
     def _toggle_overlay(self):
-        """
-        Toggle overlay. Uses Cycle directly (first page = all player highlights).
-        If a session is active and live_updates is enabled, force-flush first.
-        """
+      
         if self.watcher and self.watcher.game_active and self.watcher.current_rom:
             if bool(self.cfg.OVERLAY.get("live_updates", False)):
                 try:
                     self.watcher.force_flush()
                 except Exception:
                     pass
-        # Nur Cycle benutzen (kein Vorab-Rendern)
         self._cycle_overlay_button()
             
 
 
     def _on_toggle_keyboard_event(self):
-        """
-        Toggle overlay via keyboard (global). Debounced and guarded against concurrent renders.
-        """
+     
         now = time.monotonic()
-        # etwas großzügigeres Debounce gegen Doppelfeuer
         if now - getattr(self, "_last_toggle_ts", 0.0) < 0.40:
             return
         self._last_toggle_ts = now
-        # Verhindere Reentrancy, wenn gerade gerendert wird
         if getattr(self, "_overlay_busy", False):
             return
         self._cycle_overlay_button()
 
     def _on_joy_toggle_poll(self):
-        """
-        Poll joystick buttons for:
-          - Overlay toggle (if source=joystick)
-          - Timed Challenge (if source=joystick)
-          - One-Ball Challenge (if source=joystick)
-        Debounced against last mask.
-
-        IMPORTANT: Do NOT early-return when no game is active.
-        We call the UI functions directly; they show the top-most
-        info box themselves if a game is not running.
-        """
-        # Build interest map
+ 
         want = {}
         if self.cfg.OVERLAY.get("toggle_input_source", "keyboard") == "joystick":
             want["overlay"] = int(self.cfg.OVERLAY.get("toggle_joy_button", 2))
         if self.cfg.OVERLAY.get("challenge_time_input_source", "keyboard") == "joystick":
             want["time"] = int(self.cfg.OVERLAY.get("challenge_time_joy_button", 3))
-        if self.cfg.OVERLAY.get("challenge_one_input_source", "keyboard") == "joystick":
-            want["one"] = int(self.cfg.OVERLAY.get("challenge_one_joy_button", 4))
         if not want:
             self._joy_toggle_last_mask = 0
             return
@@ -11655,18 +10135,11 @@ class MainWindow(QMainWindow):
 
         def _bit_for(btn: int) -> int:
             return 1 << max(0, int(btn) - 1)
-
-        # Overlay
         if "overlay" in want and (newly & _bit_for(want["overlay"])) != 0:
             self._cycle_overlay_button()
             return
-
-        # Challenges: let UI check game_active and show info popup if needed
         if "time" in want and (newly & _bit_for(want["time"])) != 0:
             self._start_timed_challenge_ui()
-            return
-        if "one" in want and (newly & _bit_for(want["one"])) != 0:
-            self._start_one_ball_challenge_ui()
             return
         
     def _on_portrait_toggle(self, state: int):
@@ -11710,20 +10183,15 @@ class MainWindow(QMainWindow):
         self.cfg.save()
         self.lbl_toggle_binding.setText(self._toggle_binding_label_text())
         self._apply_toggle_source()
-        # Reinstall inputs on source change
         self._refresh_input_bindings()
 
     def _apply_toggle_source(self):
-        """
-        Startet Joystick-Poll, wenn mind. eine Aktion Source=joystick hat.
-        Stoppt ihn sonst. (Keyboard-Hotkeys werden separat registriert.)
-        """
+       
         try:
             src_overlay = str(self.cfg.OVERLAY.get("toggle_input_source", "keyboard")).lower()
             src_time    = str(self.cfg.OVERLAY.get("challenge_time_input_source", "keyboard")).lower()
-            src_one     = str(self.cfg.OVERLAY.get("challenge_one_input_source", "keyboard")).lower()
+            need_poll = (src_overlay == "joystick") or (src_time == "joystick")  # One-Ball entfernt
 
-            need_poll = (src_overlay == "joystick") or (src_time == "joystick") or (src_one == "joystick")
             if need_poll:
                 self._joy_toggle_timer.start()
             else:
@@ -11735,13 +10203,8 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
             self._joy_toggle_last_mask = 0
-            
-     # --- helper: refresh input bindings (reinstall hook + hotkeys) ---
     def _refresh_input_bindings(self):
-        """
-        Reinstall the low-level keyboard hook and WM_HOTKEY registrations
-        after any binding or input-source change.
-        """
+      
         try:
             self._install_global_keyboard_hook()
         except Exception:
@@ -11752,13 +10215,8 @@ class MainWindow(QMainWindow):
             pass           
 
     def _on_bind_toggle_clicked(self):
-        """
-        Bindet entweder eine Joystick-Taste oder eine Tastaturtaste als Overlay-Toggle.
-        Auswahl basiert auf cfg.OVERLAY["toggle_input_source"].
-        """
+   
         src = self.cfg.OVERLAY.get("toggle_input_source", "keyboard")
-
-        # --- Joystick ---
         if src == "joystick":
             dlg = QDialog(self)
             dlg.setWindowFlags(dlg.windowFlags() | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Tool)
@@ -11811,7 +10269,6 @@ class MainWindow(QMainWindow):
                         self.lbl_toggle_binding.setText(self._toggle_binding_label_text())
                         timer.stop()
                         dlg.accept()
-                        # sofort aktivieren
                         self._refresh_input_bindings()
                         return
                     if time.time() - start_ts > 10.0:
@@ -11824,8 +10281,6 @@ class MainWindow(QMainWindow):
             timer.start()
             dlg.exec()
             return
-
-        # --- Keyboard ---
         class _TmpVKFilter(QAbstractNativeEventFilter):
             def __init__(self, cb):
                 super().__init__()
@@ -11875,7 +10330,6 @@ class MainWindow(QMainWindow):
             self.cfg.save()
             self.lbl_toggle_binding.setText(self._toggle_binding_label_text())
             dlg.accept()
-            # sofort aktivieren
             self._refresh_input_bindings()
 
         fil = _TmpVKFilter(on_vk)
@@ -11941,10 +10395,7 @@ class MainWindow(QMainWindow):
         self.status_label.setStyleSheet("font: bold 14px 'Segoe UI'; color:#107c10;")
         
     def _install_global_keyboard_hook(self):
-        """
-        Keyboard-Hook deaktiviert. Wir nutzen WM_HOTKEY für alle Keyboard-Bindings.
-        Leise bleiben (kein Info-Log).
-        """
+      
         try:
             if getattr(self, "_global_keyhook", None):
                 try:
@@ -11952,17 +10403,11 @@ class MainWindow(QMainWindow):
                 except Exception:
                     pass
             self._global_keyhook = None
-            # Keine INFO-Logs hier mehr
         except Exception as e:
             log(self.cfg, f"[HOTKEY] disable hook failed: {e}", "WARN")
 
     def _register_global_hotkeys(self):
-        """
-        Registriert WM_HOTKEY nur für Aktionen mit Source=keyboard.
-        Joystick wird separat gepollt, wenn Source=joystick.
-        """
-        try:
-            # Clean previous registrations + filter
+
             try:
                 self._unregister_global_hotkeys()
             except Exception:
@@ -11977,33 +10422,21 @@ class MainWindow(QMainWindow):
             ids = {
                 "overlay_toggle": 0xA11,
                 "challenge_time": 0xA12,
-                "challenge_one":  0xA13,
+                "challenge_one":  0xA13,  # bleibt definiert, aber unbenutzt
             }
-
-            # Quellen
             src_overlay = str(self.cfg.OVERLAY.get("toggle_input_source", "keyboard")).lower()
             src_time    = str(self.cfg.OVERLAY.get("challenge_time_input_source", "keyboard")).lower()
-            src_one     = str(self.cfg.OVERLAY.get("challenge_one_input_source", "keyboard")).lower()
-
-            # VKs
             vk_overlay = int(self.cfg.OVERLAY.get("toggle_vk", 120))          # F9
             vk_time    = int(self.cfg.OVERLAY.get("challenge_time_vk", 121))  # F10
-            vk_one     = int(self.cfg.OVERLAY.get("challenge_one_vk", 122))   # F11
 
             def _reg(name: str, _id: int, vk: int):
                 mods = (self._mods_for_vk(vk) | MOD_NOREPEAT)
                 if not user32.RegisterHotKey(wintypes.HWND(hwnd), _id, mods, vk):
                     log(self.cfg, f"[HOTKEY] RegisterHotKey failed for {name} vk={vk} mod={mods}", "WARN")
-
-            # Nur registrieren, wenn Source=keyboard
             if src_overlay == "keyboard":
                 _reg("overlay", ids["overlay_toggle"], vk_overlay)
             if src_time == "keyboard":
                 _reg("timed",   ids["challenge_time"], vk_time)
-            if src_one == "keyboard":
-                _reg("oneball", ids["challenge_one"],  vk_one)
-
-            # Ein Filter für alle (feuert nur, wenn registriert)
             class _HotkeyFilter(QAbstractNativeEventFilter):
                 def __init__(self, parent_ref, ids_map):
                     super().__init__()
@@ -12019,8 +10452,6 @@ class MainWindow(QMainWindow):
                                     QTimer.singleShot(0, self.p._on_toggle_keyboard_event)
                                 elif hid == self.ids["challenge_time"]:
                                     QTimer.singleShot(0, self.p._start_timed_challenge_ui)
-                                elif hid == self.ids["challenge_one"]:
-                                    QTimer.singleShot(0, self.p._start_one_ball_challenge_ui)
                     except Exception:
                         pass
                     return False, 0
@@ -12033,9 +10464,7 @@ class MainWindow(QMainWindow):
             log(self.cfg, f"[HOTKEY] register failed: {e}", "WARN")
        
     def _uninstall_global_keyboard_hook(self):
-        """
-        Uninstall the global low-level keyboard hook.
-        """
+   
         try:
             if getattr(self, "_global_keyhook", None):
                 self._global_keyhook.uninstall()
@@ -12046,9 +10475,7 @@ class MainWindow(QMainWindow):
 
 
     def _unregister_global_hotkeys(self):
-        """
-        Unregister global WM_HOTKEYs and remove filter.
-        """
+      
         try:
             import ctypes
             from ctypes import wintypes
@@ -12072,10 +10499,7 @@ class MainWindow(QMainWindow):
 
     
     def _init_settings_tooltips(self):
-        """
-        English tooltips for the Settings tab (paths, repair, prefetch).
-        Safely checks widget existence to avoid AttributeError if UI elements are not present.
-        """
+    
         def _set_tip(attr: str, tip: str):
             try:
                 w = getattr(self, attr, None)
@@ -12083,25 +10507,14 @@ class MainWindow(QMainWindow):
                     w.setToolTip(tip)
             except Exception:
                 pass
-
-        # Repair / Prefetch
         _set_tip("btn_repair", "Recreate the base folder structure and fetch index/ROM-names if missing.")
         _set_tip("btn_prefetch", "Cache missing NVRAM maps in the background. See watcher.log for progress.")
-
-        # Paths
         _set_tip("base_label",   "Current base directory for achievements data.")
         _set_tip("btn_base",     "Change the base directory for achievements data.")
         _set_tip("nvram_label",  "Current VPinMAME NVRAM directory.")
         _set_tip("btn_nvram",    "Change the VPinMAME NVRAM directory.")
         _set_tip("tables_label", "Current Tables directory (optional).")
         _set_tip("btn_tables",   "Change the Tables directory (optional).")
-            
-            
-            
-            
-# ---------------------------------------------------------------------
-# main()
-# ---------------------------------------------------------------------
 def main():
     cfg = AppConfig.load()
     app = QApplication(sys.argv)
@@ -12128,8 +10541,7 @@ def main():
     bridge = Bridge()
     watcher = Watcher(cfg, bridge)
 
-    # Wichtig: CPU-Sim-Zustand und Schwierigkeit aus der Config laden,
-    # bevor die GUI die Checkbox initialisiert.
+
     try:
         watcher._cpu_sim_init()
     except Exception:
@@ -12137,7 +10549,7 @@ def main():
 
     win = MainWindow(cfg, watcher, bridge)
 
-    # Low-level hook + WM_HOTKEY-Fallback
+   
     try:
         win._install_global_keyboard_hook()
     except Exception:
@@ -12157,4 +10569,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
