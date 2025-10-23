@@ -10407,7 +10407,9 @@ class MainWindow(QMainWindow):
             log(self.cfg, f"[HOTKEY] disable hook failed: {e}", "WARN")
 
     def _register_global_hotkeys(self):
-
+      
+        try:
+         
             try:
                 self._unregister_global_hotkeys()
             except Exception:
@@ -10422,36 +10424,50 @@ class MainWindow(QMainWindow):
             ids = {
                 "overlay_toggle": 0xA11,
                 "challenge_time": 0xA12,
-                "challenge_one":  0xA13,  # bleibt definiert, aber unbenutzt
+                # "challenge_one":  0xA13,  # bleibt ungenutzt
             }
+
+           
             src_overlay = str(self.cfg.OVERLAY.get("toggle_input_source", "keyboard")).lower()
-            src_time    = str(self.cfg.OVERLAY.get("challenge_time_input_source", "keyboard")).lower()
+            src_time = str(self.cfg.OVERLAY.get("challenge_time_input_source", "keyboard")).lower()
+            # src_one  = str(self.cfg.OVERLAY.get("challenge_one_input_source", "keyboard")).lower()  # deaktiviert
+
+        
             vk_overlay = int(self.cfg.OVERLAY.get("toggle_vk", 120))          # F9
-            vk_time    = int(self.cfg.OVERLAY.get("challenge_time_vk", 121))  # F10
+            vk_time = int(self.cfg.OVERLAY.get("challenge_time_vk", 121))     # F10
+            # vk_one  = int(self.cfg.OVERLAY.get("challenge_one_vk", 122))     # F11 (deaktiviert)
 
             def _reg(name: str, _id: int, vk: int):
                 mods = (self._mods_for_vk(vk) | MOD_NOREPEAT)
                 if not user32.RegisterHotKey(wintypes.HWND(hwnd), _id, mods, vk):
                     log(self.cfg, f"[HOTKEY] RegisterHotKey failed for {name} vk={vk} mod={mods}", "WARN")
+
+           
             if src_overlay == "keyboard":
                 _reg("overlay", ids["overlay_toggle"], vk_overlay)
             if src_time == "keyboard":
-                _reg("timed",   ids["challenge_time"], vk_time)
+                _reg("timed", ids["challenge_time"], vk_time)
+            # if src_one == "keyboard":
+            #     _reg("oneball", ids["challenge_one"], vk_one)
+
             class _HotkeyFilter(QAbstractNativeEventFilter):
                 def __init__(self, parent_ref, ids_map):
                     super().__init__()
                     self.p = parent_ref
                     self.ids = ids_map
+
                 def nativeEventFilter(self, eventType, message):
                     try:
                         if eventType == b"windows_generic_MSG":
                             msg = ctypes.wintypes.MSG.from_address(int(message))
                             if msg.message == WM_HOTKEY:
                                 hid = int(msg.wParam)
-                                if hid == self.ids["overlay_toggle"]:
+                                if hid == self.ids.get("overlay_toggle"):
                                     QTimer.singleShot(0, self.p._on_toggle_keyboard_event)
-                                elif hid == self.ids["challenge_time"]:
+                                elif hid == self.ids.get("challenge_time"):
                                     QTimer.singleShot(0, self.p._start_timed_challenge_ui)
+                                # elif hid == self.ids.get("challenge_one"):
+                                #     QTimer.singleShot(0, self.p._start_one_ball_challenge_ui)
                     except Exception:
                         pass
                     return False, 0
@@ -10460,11 +10476,15 @@ class MainWindow(QMainWindow):
             self._hotkey_filter = _HotkeyFilter(self, ids)
             QCoreApplication.instance().installNativeEventFilter(self._hotkey_filter)
 
+            log(self.cfg, "[HOTKEY] Registered WM_HOTKEY")
         except Exception as e:
             log(self.cfg, f"[HOTKEY] register failed: {e}", "WARN")
-       
+
+
     def _uninstall_global_keyboard_hook(self):
-   
+        """
+        Deinstalliert den globalen Keyboard-Hook, falls aktiv.
+        """
         try:
             if getattr(self, "_global_keyhook", None):
                 self._global_keyhook.uninstall()
@@ -10475,28 +10495,37 @@ class MainWindow(QMainWindow):
 
 
     def _unregister_global_hotkeys(self):
-      
+        """
+        Entfernt alle registrierten WM_HOTKEYs und den Event-Filter.
+        """
         try:
             import ctypes
             from ctypes import wintypes
             user32 = ctypes.windll.user32
             hwnd = int(self.winId())
-            if getattr(self, "_hotkey_ids", None):
-                for _name, _id in list(self._hotkey_ids.items()):
-                    try:
-                        user32.UnregisterHotKey(wintypes.HWND(hwnd), _id)
-                    except Exception:
-                        pass
-            self._hotkey_ids = {}
-        except Exception:
-            pass
-        try:
-            if getattr(self, "_hotkey_filter", None):
-                QCoreApplication.instance().removeNativeEventFilter(self._hotkey_filter)  # type: ignore
-        except Exception:
-            pass
-        self._hotkey_filter = None
 
+          
+            if getattr(self, "_hotkey_ids", None):
+                try:
+                    for _name, _id in list(self._hotkey_ids.items()):
+                        try:
+                            user32.UnregisterHotKey(wintypes.HWND(hwnd), int(_id))
+                        except Exception:
+                            pass
+                finally:
+                    self._hotkey_ids = None
+
+           
+            if getattr(self, "_hotkey_filter", None):
+                try:
+                    QCoreApplication.instance().removeNativeEventFilter(self._hotkey_filter)
+                except Exception:
+                    pass
+                self._hotkey_filter = None
+
+            log(self.cfg, "[HOTKEY] Unregistered WM_HOTKEY")
+        except Exception as e:
+            log(self.cfg, f"[HOTKEY] unregister failed: {e}", "WARN") 
     
     def _init_settings_tooltips(self):
     
